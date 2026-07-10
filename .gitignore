@@ -1,0 +1,47 @@
+# APKs / Android packages
+*.apk
+*.apks
+*.xapk
+*.aab
+
+# Reverse-engineered private/proprietary output
+research/jadx/*
+!research/jadx/.gitkeep
+research/apktool/*
+!research/apktool/.gitkeep
+
+# Private app/device data
+research/database-dumps/*
+!research/database-dumps/.gitkeep
+research/runtime-logs/*
+!research/runtime-logs/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.tmb
+
+# Secrets / credentials / signing
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.crt
+*.env
+*token*
+*secret*
+
+# Build/cache output
+build/
+dist/
+out/
+.tmp/
+.cache/
+__pycache__/
+*.pyc
+
+# Local input/output artifacts
+input/
+output/
