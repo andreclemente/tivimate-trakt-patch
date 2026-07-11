@@ -6,16 +6,19 @@ The APK patch will add Trakt login/settings inside the patched TiviMate app.
 
 ## User experience
 
-Primary target is Android TV / TV box. The user currently cannot run TiviMate on a phone, so the settings/login flow must be usable with a TV remote/D-pad only.
+The current available test/runtime device is Android TV / TV box, but the patch must also work on Android phones/tablets.
 
-TV requirements:
+Cross-device requirements:
 
+- D-pad/remote navigation on TV;
+- touch navigation on phone/tablet;
 - large readable text at TV distance;
+- normal touch targets on phone/tablet;
 - visible focus state for every button/control;
-- no required touch gestures;
-- no required keyboard-heavy flow;
-- device-code OAuth preferred because the user can authorize from another device;
-- every remote click must show visible loading/status feedback.
+- no required phone-only gestures;
+- no required TV-only remote shortcuts;
+- device-code OAuth preferred because it works on both TV and phone;
+- every action must show visible loading/status feedback.
 
 Settings row:
 
@@ -142,11 +145,12 @@ Manifest addition:
 Implementation style:
 
 - Use plain Android Views where possible to avoid adding large dependencies.
-- Reuse TiviMate TV theme if safe.
+- Reuse TiviMate theme if safe.
 - Keep screen functional even if visual integration is basic.
-- Ensure all controls are focusable and D-pad navigable.
-- Do not require touchscreen hardware.
-- Prefer copy-free device-code login: show `verification_url` and large `user_code`.
+- Ensure all controls are focusable and D-pad navigable on TV.
+- Ensure all controls have normal touch targets on phone/tablet.
+- Do not require touchscreen hardware, but support touch when present.
+- Prefer device-code login: show `verification_url` and large `user_code`; phone/tablet may later add copy/open helpers.
 
 ## Settings-menu patch point
 
@@ -168,10 +172,10 @@ Fallback during early patching:
 
 ## Validation
 
-Manual test checklist on Android TV / TV box:
+Manual test checklist:
 
-- Install patched APK on TV.
-- Open Trakt settings screen using remote only.
+- Install patched APK on Android TV / TV box and open Trakt settings using remote only.
+- Install patched APK on phone/tablet when available and open Trakt settings using touch.
 - Connect flow displays code and URL.
 - Polling stops on success/cancel/expiry.
 - Token persists after app restart.

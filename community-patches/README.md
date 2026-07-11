@@ -15,15 +15,17 @@ This scaffold keeps the project aligned with community patch ecosystems instead 
 
 Both currently compile but do not modify TiviMate. They are placeholders until the settings and playback hook fingerprints are proven.
 
-## TV-first constraint
+## Device support constraint
 
-The user currently can run TiviMate only on Android TV / TV box, not on a phone. Patch UX and validation are TV-first:
+The user currently can test/run TiviMate only on Android TV / TV box, but the patch must also work on Android phone/tablet. Patch UX and validation are cross-device:
 
-- D-pad/remote navigable settings UI;
+- D-pad/remote navigable settings UI on TV;
+- touch navigable settings UI on phone/tablet;
 - visible focus/loading/status feedback;
-- no required touchscreen feature;
+- no required touchscreen feature, but touch works when present;
+- no required Leanback/TV-only feature;
 - device-code Trakt login, authorized from another device;
-- network ADB / TV install testing first.
+- network ADB / TV install testing first, phone/tablet testing when available.
 
 ## Build prerequisites
 

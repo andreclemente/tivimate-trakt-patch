@@ -39,7 +39,7 @@ Identify, with concrete evidence, where TiviMate stores playback progress and wa
 - `docs/architecture.md` — runtime-first architecture and non-goals.
 - `docs/patch-strategy.md` — reproducible APK patch delivery plan.
 - `docs/patch-framework-survey.md` — community patch framework/Morphe-ReVanced survey.
-- `docs/android-tv-constraints.md` — TV-only/remote-first patch constraints.
+- `docs/android-device-support.md` — Android TV + phone/tablet patch constraints.
 - `morphe/` — scaffold for a Morphe/ReVanced-family patch bundle.
 - `community-patches/` — buildable ReVanced-template patch bundle scaffold.
 - `docs/trakt-login-settings.md` — Trakt login/settings screen design.

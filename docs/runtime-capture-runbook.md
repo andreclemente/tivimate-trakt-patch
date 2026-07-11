@@ -19,7 +19,7 @@ tools/frida/method-trace-template.js
 
 ## Device setup
 
-Current constraint: TiviMate can only be run on the user's Android TV / TV box, not on a phone. Prefer TV/network ADB commands below.
+Current constraint: TiviMate can currently be tested from the user's Android TV / TV box. The patch must still support phone/tablet; this runbook focuses on the available TV path.
 
 1. Enable Developer options + ADB debugging on the TV.
 2. Connect from the PC:

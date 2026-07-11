@@ -134,6 +134,7 @@ Purpose:
    - `TraktSettingsPatch`
    - `TraktRuntimeSyncPatch`
    - `Fingerprints`
-3. Keep stubs non-invasive until runtime evidence maps exact methods.
-4. Run a patch bundle build smoke test.
-5. Use emulator logs to fill fingerprints and injection points.
+3. Ensure patch UI remains cross-device: TV/D-pad and phone/tablet touch.
+4. Keep stubs non-invasive until runtime evidence maps exact methods.
+5. Run a patch bundle build smoke test.
+6. Use TV/network-ADB logs first, then phone/tablet logs when available, to fill fingerprints and injection points.
