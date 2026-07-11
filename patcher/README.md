@@ -1,39 +1,26 @@
-# APK Patcher
+# APK Patcher Fallback
 
-This directory will contain the reproducible APK patcher.
+This directory contains a small research/fallback patcher harness.
 
-## Goal
+## Current decision
 
-Patch a user-supplied legitimate TiviMate APK locally to add Trakt runtime sync.
+Preferred infrastructure is now a **Morphe/ReVanced-family patch bundle**, documented under `morphe/` and `docs/patch-framework-survey.md`.
 
-## Non-goals
+Keep this custom patcher only for:
 
-- Do not distribute patched APKs.
-- Do not include proprietary APK contents in git.
-- Do not bypass TiviMate Premium/licensing/provider access.
+- APK fingerprint inspection;
+- patch report generation;
+- fallback experiments if the community patch framework cannot handle TiviMate's protected APK.
 
-## Planned CLI
+## Planned CLI fallback
 
 ```sh
 python3 patcher/patch.py \
   --input input/TiviMate.apk \
   --output output/TiviMate-Trakt-patched.apk \
-  --keystore /path/to/debug-or-user.keystore \
-  --ks-pass env:KEYSTORE_PASS
+  --experimental
 ```
-
-## Planned phases
-
-1. Validate input APK.
-2. Decode with apktool.
-3. Apply resource/smali/manifest patches.
-4. Inject `com.tivimate.traktpatch` runtime classes.
-5. Rebuild.
-6. Zipalign.
-7. Sign.
-8. Verify.
-9. Emit patch report.
 
 ## Current status
 
-Skeleton only. Exact settings row and hook patch points still need runtime/static mapping.
+Skeleton only. It intentionally exits as blocked until patch points are mapped.
