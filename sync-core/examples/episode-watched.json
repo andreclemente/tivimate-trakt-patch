@@ -1,0 +1,26 @@
+{
+  "event_id": "example-install:episode:provider-episode-456:watched:1783770300000",
+  "event_type": "watched",
+  "media_type": "episode",
+  "timestamp_ms": 1783770300000,
+  "position_ms": 2700000,
+  "duration_ms": 2700000,
+  "progress_percent": 100.0,
+  "title": "Example Episode",
+  "show_title": "Example Show",
+  "year": 2024,
+  "season": 1,
+  "episode": 2,
+  "provider_item_id": "provider-episode-456",
+  "provider_playlist_id": "playlist-1",
+  "ids": {
+    "trakt": null,
+    "tmdb": null,
+    "tvdb": null,
+    "imdb": null
+  },
+  "source": "tivimate-runtime-hook",
+  "raw_hook": {
+    "table": "episode_last_played_positions"
+  }
+}

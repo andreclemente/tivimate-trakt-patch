@@ -44,6 +44,7 @@ dist/
 out/
 .tmp/
 .cache/
+.hermes/
 __pycache__/
 *.pyc
 
