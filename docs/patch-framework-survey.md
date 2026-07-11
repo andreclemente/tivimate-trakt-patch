@@ -1,86 +1,46 @@
 # APK Patch Framework Survey
 
-## Why this exists
+## Decision
 
-The project should not reinvent a full APK patch ecosystem if an existing community patch framework can do the boring parts:
+Use **Morphe** for the TiviMate Trakt APK patch.
 
-- decode/rebuild/sign APKs;
-- package patches;
-- apply bytecode/resource/manifest edits;
-- support extension/injected code;
-- expose CLI/manager UX;
-- manage patch options and version compatibility.
+Do **not** target ReVanced. ReVanced was briefly used only as a local scaffold smoke-test because its template was easy to build, but the user explicitly wants Morphe. The working project direction is now Morphe-only.
 
-The goal remains a **TiviMate APK patch** that adds Trakt runtime sync. The framework is just delivery infrastructure.
+## Why Morphe
 
-## Surveyed ecosystem
+Morphe provides the community patch infrastructure we want:
 
-### Morphe / ReVanced-family patchers
+- patch bundles (`.mpp`);
+- Morphe CLI / Manager workflow;
+- bytecode/resource/manifest patch APIs;
+- extension/injected runtime code;
+- patch options;
+- package/version compatibility metadata;
+- fingerprints instead of brittle fixed obfuscated names.
 
-Examples:
-
-- `MorpheApp/morphe-manager`
-- `MorpheApp/morphe-cli`
-- `MorpheApp/morphe-patches`
-- ReVanced patcher ecosystem
-- third-party community patch bundles built on the same model
-
-Observed capabilities from Morphe docs/repos:
-
-- CLI patch command:
+Expected final command shape:
 
 ```sh
-java -jar morphe-cli.jar patch --patches patches.mpp input.apk
+java -jar morphe-cli.jar patch --patches tivimate-trakt-patches.mpp input/TiviMate.apk
 ```
 
-- Multiple patch bundles are supported:
-
-```sh
-java -jar morphe-cli.jar patch --patches patches-a.mpp --patches patches-b.mpp input.apk
-```
-
-- Patch options are supported via `-O` and JSON options files.
-- Patch types include bytecode patches and resource/manifest patches.
-- Patches can inject extension code and call it from modified bytecode.
-- Existing patches use fingerprints rather than only fixed obfuscated names.
-
-This aligns well with our needs:
-
-```text
-TiviMate APK
-  ↓ Morphe/ReVanced-family patch bundle
-Injected Trakt settings/auth/sync code
-  ↓ bytecode/resource/manifest patches
-Patched APK
-```
-
-## Recommendation
-
-Use a **Morphe/ReVanced-family patch bundle** as the preferred patch infrastructure, instead of growing a bespoke patcher.
-
-Keep `patcher/patch.py` only as a tiny research/fallback harness until the Morphe-compatible patch module exists.
-
-## Proposed repo layout
+## Repo layout
 
 ```text
 morphe/
-├── README.md
+├── settings.gradle.kts
 ├── patches/
-│   └── src/main/kotlin/.../tivimate/trakt/
+│   ├── build.gradle.kts
+│   └── src/main/kotlin/com/tivimate/traktpatch/patches/
+│       ├── TiviMateCompatibility.kt
 │       ├── TraktSettingsPatch.kt
 │       ├── TraktRuntimeSyncPatch.kt
 │       └── Fingerprints.kt
 └── extensions/
     └── trakt/
-        └── src/main/.../com/tivimate/traktpatch/
-            ├── settings/TraktSettingsActivity
-            ├── auth/TraktDeviceAuthManager
-            ├── sync/TraktClient
-            ├── sync/TraktSyncQueue
-            └── hooks/PlaybackHookBridge
+        └── src/main/java/com/tivimate/traktpatch/extension/
+            └── TraktPatchExtension.java
 ```
-
-Actual Gradle structure should follow the chosen framework's current template after a build smoke test.
 
 ## Patch decomposition
 
@@ -88,10 +48,10 @@ Actual Gradle structure should follow the chosen framework's current template af
 
 Purpose:
 
-- Inject `TraktSettingsActivity`.
-- Add manifest entry.
+- Inject/enable Trakt settings runtime code.
 - Add row/entry point inside TiviMate settings.
 - Add device OAuth UI and token storage.
+- Work on Android TV and phone/tablet.
 
 Needs mapping:
 
@@ -101,7 +61,7 @@ Needs mapping:
 
 Purpose:
 
-- Hook the proven playback/progress/watched method(s).
+- Hook proven playback/progress/watched method(s).
 - Emit neutral `sync-core` events.
 - Enqueue events.
 
@@ -116,25 +76,20 @@ Needs mapping:
 Purpose:
 
 - Add temporary logs or debug UI to validate patched APK without Frida.
-- Must be disabled by default and not log secrets.
+- Must be disabled by default and must not log secrets.
 
-## Risks / checks before committing fully
+## Risks / checks
 
-1. **License:** Morphe patches are GPLv3 with additional section 7 terms. If we derive from Morphe code/templates or publish a Morphe patch bundle, repo licensing must be compatible.
-2. **Protected APK:** TiviMate uses protection/packing. Framework bytecode patches may still work on visible/injected parts, but hidden runtime-loaded classes remain a challenge.
-3. **Settings integration:** Adding a clean settings row still requires mapping TiviMate's settings UI.
-4. **Networking dependencies:** Injected Trakt client should avoid pulling huge dependencies. Prefer Java/Kotlin stdlib + platform HTTP APIs if possible.
-5. **Version compatibility:** Need robust fingerprints and explicit supported TiviMate version/hash.
-6. **Patch bundle build:** Need a local Morphe/ReVanced patch bundle smoke test before deleting custom patcher fallback.
+1. **Morphe build access:** Morphe Gradle artifacts are in GitHub Packages; local builds require package-read credentials.
+2. **License:** Morphe uses GPLv3 with additional section 7 terms. Morphe-derived code/templates must keep compatible licensing and notices.
+3. **Protected APK:** TiviMate uses protection/packing. Visible bytecode/resource patches may work, but hidden runtime-loaded classes still need runtime evidence.
+4. **Settings integration:** Adding a clean settings row requires mapping TiviMate's settings UI.
+5. **Networking dependencies:** Injected Trakt client should avoid heavy dependencies; prefer platform APIs.
+6. **Version compatibility:** Use robust fingerprints and explicit supported TiviMate version/hash.
 
 ## Immediate next steps
 
-1. Add a `morphe/` scaffold in this repo.
-2. Create patch stubs:
-   - `TraktSettingsPatch`
-   - `TraktRuntimeSyncPatch`
-   - `Fingerprints`
-3. Ensure patch UI remains cross-device: TV/D-pad and phone/tablet touch.
-4. Keep stubs non-invasive until runtime evidence maps exact methods.
-5. Run a patch bundle build smoke test.
-6. Use TV/network-ADB logs first, then phone/tablet logs when available, to fill fingerprints and injection points.
+1. Build the Morphe scaffold locally when credentials/SDK allow.
+2. Use TV/network-ADB logs first to fill fingerprints.
+3. Implement `TraktSettingsPatch` only after settings insertion point is known.
+4. Implement `TraktRuntimeSyncPatch` only after playback/progress/watched hooks are known.

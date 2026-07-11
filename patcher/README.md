@@ -4,7 +4,7 @@ This directory contains a small research/fallback patcher harness.
 
 ## Current decision
 
-Preferred infrastructure is now a **Morphe/ReVanced-family patch bundle**, documented under `morphe/` and `docs/patch-framework-survey.md`.
+Preferred infrastructure is now a **Morphe patch bundle**, documented under `morphe/` and `docs/patch-framework-survey.md`.
 
 Keep this custom patcher only for:
 

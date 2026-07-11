@@ -1,41 +1,62 @@
-# Morphe/ReVanced-family Patch Bundle Scaffold
+# TiviMate Trakt Morphe Patch Bundle
 
-This directory is reserved for a Morphe/ReVanced-family patch bundle for TiviMate Trakt sync.
+This is the only target patch framework for the project.
 
-## Direction
+## Decision
 
-Preferred delivery infrastructure: community patch framework bundle, not a bespoke APK patcher.
+Use **Morphe**, not ReVanced, for the TiviMate Trakt APK patch.
 
-The final patched APK should be produced by a standard patch command such as:
+Expected final patch command shape:
 
 ```sh
 java -jar morphe-cli.jar patch --patches tivimate-trakt-patches.mpp input/TiviMate.apk
 ```
 
-Exact command/package format depends on the framework template we adopt after a build smoke test.
+## Current status
+
+Scaffold only. The patch stubs compile structurally but do not modify TiviMate until these are mapped:
+
+1. TiviMate settings/menu insertion point.
+2. Playback/progress/watched hook point.
+3. Media metadata extraction path.
 
 ## Planned patches
 
 - `TiviMate Trakt settings/login`
-  - inject Trakt settings screen;
-  - add manifest entry;
-  - add TiviMate settings row;
-  - implement device-code OAuth.
-
 - `TiviMate Trakt runtime sync`
-  - hook proven playback/progress/watched functions;
-  - emit neutral sync events;
-  - enqueue background Trakt sync.
+- optional debug/runtime discovery patch
 
-- `TiviMate Trakt debug hooks` optional
-  - development-only logging and diagnostics.
+## Device support
 
-## Why not implement here yet?
+The patch must support both Android TV/TV box and phone/tablet:
 
-Patch fingerprints and insertion points are not proven yet. Need emulator/runtime evidence for:
+- TV: D-pad/focus navigation;
+- phone/tablet: touch navigation;
+- no required Leanback feature;
+- no required touchscreen feature.
 
-- settings menu class/method/resource;
-- playback/progress/watched hook point;
-- metadata fields for movie/episode matching.
+## Build notes
 
-Until then, this scaffold documents direction without adding brittle fake patches.
+Morphe Gradle artifacts are resolved from GitHub Packages:
+
+```properties
+# ~/.gradle/gradle.properties
+gpr.user=<github-user>
+gpr.key=<github-token-with-read-packages>
+```
+
+or environment variables:
+
+```sh
+export GITHUB_ACTOR=<github-user>
+export GITHUB_TOKEN=<github-token-with-read-packages>
+```
+
+Build smoke test:
+
+```sh
+cd morphe
+./gradlew --no-daemon :patches:build
+```
+
+If building extensions, a full Android SDK is required.

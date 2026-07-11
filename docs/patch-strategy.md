@@ -8,7 +8,7 @@ The patcher must take a user-supplied legitimate TiviMate APK, validate supporte
 
 ## Patch goals
 
-Preferred infrastructure is a Morphe/ReVanced-family patch bundle if build smoke tests confirm it fits TiviMate. The custom `patcher/` stays as fallback/research harness.
+Preferred infrastructure is a Morphe patch bundle if build smoke tests confirm it fits TiviMate. The custom `patcher/` stays as fallback/research harness.
 
 1. Add Trakt login/settings entry inside TiviMate.
 2. Add runtime hooks/functions for playback progress and watched/unwatched state.

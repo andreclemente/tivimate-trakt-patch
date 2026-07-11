@@ -1,0 +1,1 @@
+-keep class com.tivimate.traktpatch.extension.** { *; }
