@@ -19,9 +19,17 @@ tools/frida/method-trace-template.js
 
 ## Device setup
 
-1. Start emulator/device.
-2. Install TiviMate APK.
-3. Confirm ADB sees it:
+Current constraint: TiviMate can only be run on the user's Android TV / TV box, not on a phone. Prefer TV/network ADB commands below.
+
+1. Enable Developer options + ADB debugging on the TV.
+2. Connect from the PC:
+
+```sh
+adb connect <tv-ip>:5555
+```
+
+3. Install TiviMate APK on the TV.
+4. Confirm ADB sees it:
 
 ```sh
 adb devices -l

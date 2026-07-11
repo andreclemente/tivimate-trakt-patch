@@ -15,6 +15,16 @@ This scaffold keeps the project aligned with community patch ecosystems instead 
 
 Both currently compile but do not modify TiviMate. They are placeholders until the settings and playback hook fingerprints are proven.
 
+## TV-first constraint
+
+The user currently can run TiviMate only on Android TV / TV box, not on a phone. Patch UX and validation are TV-first:
+
+- D-pad/remote navigable settings UI;
+- visible focus/loading/status feedback;
+- no required touchscreen feature;
+- device-code Trakt login, authorized from another device;
+- network ADB / TV install testing first.
+
 ## Build prerequisites
 
 The ReVanced Gradle plugin is hosted on GitHub Packages. Set credentials with `read:packages` access:

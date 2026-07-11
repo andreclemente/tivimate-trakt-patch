@@ -21,6 +21,8 @@ val traktSettingsPatch = bytecodePatch(
         // TODO after mapping settings UI:
         // - add TraktSettingsActivity manifest entry/resources;
         // - patch TiviMate settings list/menu to launch it;
+        // - keep the UI Android TV/D-pad first: focusable controls, large code text,
+        //   visible loading/status states, no required touchscreen gestures;
         // - wire device-code OAuth status UI.
     }
 }

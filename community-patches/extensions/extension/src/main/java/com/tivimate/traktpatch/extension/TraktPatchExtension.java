@@ -11,6 +11,8 @@ public final class TraktPatchExtension {
 
     public static void initialize() {
         // Placeholder: future entry point for settings/auth/sync initialization.
+        // TV-first constraint: all UI launched from this extension must be D-pad navigable,
+        // must not require touchscreen hardware, and must show visible status feedback.
     }
 
     public static void onPlaybackProgress(
