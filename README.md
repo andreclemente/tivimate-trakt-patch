@@ -40,6 +40,7 @@ Identify, with concrete evidence, where TiviMate stores playback progress and wa
 - `docs/patch-strategy.md` — reproducible APK patch delivery plan.
 - `docs/patch-framework-survey.md` — Morphe patch framework decision and risks.
 - `docs/android-device-support.md` — Android TV + phone/tablet patch constraints.
+- `docs/testing-now.md` — what can be tested now and exact Morphe commands.
 - `morphe/` — Morphe patch bundle scaffold. Morphe is the target framework.
 - `docs/trakt-login-settings.md` — Trakt login/settings screen design.
 - `docs/trakt-api.md` — Trakt API contract.
