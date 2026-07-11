@@ -1,0 +1,5 @@
+<!-- Planned manifest snippet for the injected Trakt settings screen. -->
+<activity
+    android:name="com.tivimate.traktpatch.settings.TraktSettingsActivity"
+    android:exported="false"
+    android:theme="@style/APKTOOL_DUPLICATE_style_0x7f14030f" />

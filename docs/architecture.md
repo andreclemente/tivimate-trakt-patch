@@ -66,42 +66,22 @@ Responsibilities:
 - Handle rate limits and auth refresh/retry behavior.
 - Never store client secrets or tokens in committed files.
 
-## Runtime strategy options
+## Runtime strategy
 
-### Research prototype: Frida
+### Final delivery: reproducible APK patch
 
-Use first for discovery. Fast to iterate and easy to disable.
+The chosen final delivery is an APK patch. Frida remains a research tool for discovering hook points; LSPosed is not a target delivery path.
 
-Pros:
-- No APK rebuild.
-- Good method/SQL/player callback tracing.
+The patcher must:
 
-Cons:
-- Not final user-friendly delivery.
-- Needs rooted/debuggable/emulator or Frida server.
+- validate input version/hash/fingerprints;
+- inject Trakt settings/auth/sync components;
+- add a Trakt settings entry inside TiviMate;
+- hook proven playback/progress/watched functions;
+- rebuild/sign locally with a user-owned key;
+- refuse unsupported APKs unless explicit experimental mode is used.
 
-### Personal runtime module: LSPosed
-
-Likely best second step after hook points are proven.
-
-Pros:
-- Clean separation from proprietary APK.
-- Runtime hooks without distributing modified TiviMate APK.
-
-Cons:
-- Requires rooted/LSPosed environment.
-
-### Reproducible APK patch
-
-Only after hook points are stable.
-
-Pros:
-- Self-contained patched APK for personal use.
-
-Cons:
-- More fragile with protected APK.
-- Rebuild/sign/install friction.
-- Must not distribute proprietary patched APK.
+See `docs/patch-strategy.md` and `docs/trakt-login-settings.md`.
 
 ## Non-goals
 

@@ -37,6 +37,8 @@ Identify, with concrete evidence, where TiviMate stores playback progress and wa
 ## Key docs
 
 - `docs/architecture.md` — runtime-first architecture and non-goals.
+- `docs/patch-strategy.md` — reproducible APK patch delivery plan.
+- `docs/trakt-login-settings.md` — Trakt login/settings screen design.
 - `docs/trakt-api.md` — Trakt API contract.
 - `docs/sync-queue.md` — durable queue/idempotency design.
 - `docs/runtime-capture-runbook.md` — what to run on emulator/device.
