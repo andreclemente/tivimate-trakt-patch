@@ -1,0 +1,1402 @@
+## classes.dex: 53990 strings
+## classes2.dex: 8427 strings
+## total: 62417 strings
+
+# last_played_positions (2)
+episode_last_played_positions
+last_played_positions
+
+# episode_last_played_positions (1)
+episode_last_played_positions
+
+# history_programs (1)
+history_programs
+
+# movie (26)
+, movieData=
+ALL_MOVIES
+DELETE FROM movies WHERE id IN (
+GeneratedJsonAdapter(MovieData)
+Lar/tvplayer/core/data/api/xtreamcodes/MovieData;
+Lar/tvplayer/core/data/api/xtreamcodes/MovieDataJsonAdapter;
+MovieData(containerExtension=
+No enum constant ar.tvplayer.core.data.MovieCategoryType.
+getHasMoviesImpl()Z
+getLastMovieCategoryIdImpl()J
+getLastMovieCategoryPlaylistIdImpl()J
+getLastMovieCategoryTypeIdImpl()I
+getMoviesSortingImpl()I
+getShouldGroupAllMoviesByCategoriesImpl()Z
+hasMoviesImpl
+lastMovieCategoryIdImpl
+lastMovieCategoryPlaylistIdImpl
+lastMovieCategoryTypeIdImpl
+movieData
+movie_categories
+movie_data
+movie_image
+movies
+moviesSortingImpl
+movies_fts
+shouldGroupAllMoviesByCategoriesImpl
+
+# episode (44)
+, episodeCountRaw=
+, episodeNumbers=
+, episodes=
+, episodesMap=
+Episode(id=
+EpisodeInfo(releaseDate=
+EpisodesResponse(js=
+EpisodesResponseJs(itemCount=
+FullEpisode(id=
+FullEpisodesResponse(js=
+FullEpisodesResponseJs(itemCount=
+GeneratedJsonAdapter(Episode)
+GeneratedJsonAdapter(EpisodeInfo)
+GeneratedJsonAdapter(EpisodesResponse)
+GeneratedJsonAdapter(EpisodesResponseJs)
+GeneratedJsonAdapter(FullEpisode)
+GeneratedJsonAdapter(FullEpisodesResponse)
+GeneratedJsonAdapter(FullEpisodesResponseJs)
+Lar/tvplayer/core/data/api/stalker/Episode;
+Lar/tvplayer/core/data/api/stalker/EpisodeJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/EpisodesResponse;
+Lar/tvplayer/core/data/api/stalker/EpisodesResponseJs;
+Lar/tvplayer/core/data/api/stalker/EpisodesResponseJsJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/EpisodesResponseJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/FullEpisode;
+Lar/tvplayer/core/data/api/stalker/FullEpisodeJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/FullEpisodesResponse;
+Lar/tvplayer/core/data/api/stalker/FullEpisodesResponseJs;
+Lar/tvplayer/core/data/api/stalker/FullEpisodesResponseJsJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/FullEpisodesResponseJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/Episode;
+Lar/tvplayer/core/data/api/xtreamcodes/EpisodeInfo;
+Lar/tvplayer/core/data/api/xtreamcodes/EpisodeInfoJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/EpisodeJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/EpisodesMap;
+autoPlayNextEpisodeImpl
+episodeNumbers
+episode_last_played_positions
+episodes
+getAutoPlayNextEpisodeImpl()Z
+, episodes=
+Lar/tvplayer/core/data/api/xtreamcodes/Episode;
+episodes
+episodesMap
+
+# series (52)
+, series=
+, seriesCategories=
+, seriesCategoriesInfo=
+ALL_SERIES
+DELETE FROM series WHERE id IN (
+GeneratedJsonAdapter(Series)
+GeneratedJsonAdapter(SeriesCategory)
+GeneratedJsonAdapter(SeriesInfoData)
+Lar/tvplayer/core/data/api/xtreamcodes/Series;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesCategory;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesCategoryJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesInfo;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesInfoData;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesInfoDataJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesJsonAdapter;
+No enum constant ar.tvplayer.core.data.SeriesCategoryType.
+SeriesCategory(id=
+SeriesInfo(info=
+SeriesInfoData(releaseDate=
+getHasSeriesImpl()Z
+getLastSeriesCategoryIdImpl()J
+getLastSeriesCategoryPlaylistIdImpl()J
+getLastSeriesCategoryTypeIdImpl()I
+getSeriesSortingImpl()I
+getShouldGroupAllSeriesByCategoriesImpl()Z
+get_series
+get_series_categories
+get_series_info
+hasSeriesImpl
+isSeriesStr
+is_series
+lastSeriesCategoryIdImpl
+lastSeriesCategoryPlaylistIdImpl
+lastSeriesCategoryTypeIdImpl
+season_series
+series
+seriesSortingImpl
+series_categories
+series_fts
+series_id
+series_number
+shouldGroupAllSeriesByCategoriesImpl
+, isSeriesStr=
+GeneratedJsonAdapter(SeriesInfo)
+Lar/tvplayer/core/data/api/xtreamcodes/Series;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesInfo;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesInfoData;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesInfoJsonAdapter;
+Series(id=
+is_series
+series
+series_id
+
+# season (20)
+, season=
+, seasonNumber=
+, seasons=
+GeneratedJsonAdapter(Season)
+GeneratedJsonAdapter(SeasonsResponse)
+GeneratedJsonAdapter(SeasonsResponseJs)
+Lar/tvplayer/core/data/api/stalker/Season;
+Lar/tvplayer/core/data/api/stalker/SeasonJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/SeasonsResponse;
+Lar/tvplayer/core/data/api/stalker/SeasonsResponseJs;
+Lar/tvplayer/core/data/api/stalker/SeasonsResponseJsJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/SeasonsResponseJsonAdapter;
+Season(id=
+SeasonsResponse(js=
+SeasonsResponseJs(itemCount=
+season
+seasonNumber
+season_number
+season_series
+seasons
+
+# duration (80)
+
+    UPDATE workspec SET schedule_requested_at = 0
+    WHERE state NOT IN (2, 3, 5)
+        AND schedule_requested_at = -1
+        AND interval_duration <> 0
+    
+ WHERE last_enqueue_time = 0 AND interval_duration <> 0 
+#EXT-X-TARGETDURATION
+#EXT-X-TARGETDURATION:(\d+)\b
+, archiveDuration=
+, archiveDurationDays=
+, cacheDuration=
+, duration: 
+, durationSec=
+, durationUs=
+, durationsUs=
+, tvArchiveDuration=
+Adjusting minDurationToRetainAfterDiscardMs to be at least minDurationForQualityIncreaseMs
+Animators cannot have negative duration: 
+CREATE TABLE IF NOT EXISTS `WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT NOT NULL, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL DEFAULT -1, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `generation` INTEGER NOT NULL DEFAULT 0, `next_schedule_time_override` INTEGER NOT NULL DEFAULT 9223372036854775807, `next_schedule_time_override_generation` INTEGER NOT NULL DEFAULT 0, `stop_reason` INTEGER NOT NULL DEFAULT -256, `trace_tag` TEXT, `required_network_type` INTEGER NOT NULL, `required_network_request` BLOB NOT NULL DEFAULT x'', `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (
+                `id` TEXT NOT NULL,
+                `state` INTEGER NOT NULL,
+                `worker_class_name` TEXT NOT NULL,
+                `input_merger_class_name` TEXT NOT NULL,
+                `input` BLOB NOT NULL,
+                `output` BLOB NOT NULL,
+                `initial_delay` INTEGER NOT NULL,
+                `interval_duration` INTEGER NOT NULL,
+                `flex_duration` INTEGER NOT NULL,
+                `run_attempt_count` INTEGER NOT NULL,
+                `backoff_policy` INTEGER NOT NULL,
+                `backoff_delay_duration` INTEGER NOT NULL,
+                `last_enqueue_time` INTEGER NOT NULL,
+                `minimum_retention_duration` INTEGER NOT NULL,
+                `schedule_requested_at` INTEGER NOT NULL,
+                `run_in_foreground` INTEGER NOT NULL,
+                `out_of_quota_policy` INTEGER NOT NULL,
+                `period_count` INTEGER NOT NULL DEFAULT 0,
+                `generation` INTEGER NOT NULL DEFAULT 0,
+                `required_network_type` INTEGER NOT NULL,
+                `requires_charging` INTEGER NOT NULL,
+                `requires_device_idle` INTEGER NOT NULL,
+                `requires_battery_not_low` INTEGER NOT NULL,
+                `requires_storage_not_low` INTEGER NOT NULL,
+                `trigger_content_update_delay` INTEGER NOT NULL,
+                `trigger_max_content_delay` INTEGER NOT NULL,
+                `content_uri_triggers` BLOB NOT NULL,
+                PRIMARY KEY(`id`)
+                )
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT NOT NULL, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL DEFAULT -1, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `generation` INTEGER NOT NULL DEFAULT 0, `next_schedule_time_override` INTEGER NOT NULL DEFAULT 9223372036854775807, `next_schedule_time_override_generation` INTEGER NOT NULL DEFAULT 0, `stop_reason` INTEGER NOT NULL DEFAULT -256, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT NOT NULL, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `generation` INTEGER NOT NULL DEFAULT 0, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `period_start_time` INTEGER NOT NULL, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+DELETE FROM workspec WHERE state IN (2, 3, 5) AND (last_enqueue_time + minimum_retention_duration) < 
+DURATION=([\d\.]+)\b
+Discarding last cue point with unexpected duration: 
+Duration
+INSERT INTO `_new_WorkSpec` (
+            `id`,
+            `state`,
+            `worker_class_name`,
+            `input_merger_class_name`,
+            `input`,
+            `output`,
+            `initial_delay`,
+            `interval_duration`,
+            `flex_duration`,
+            `run_attempt_count`,
+            `backoff_policy`,
+            `backoff_delay_duration`,
+            `last_enqueue_time`,
+            `minimum_retention_duration`,
+            `schedule_requested_at`,
+            `run_in_foreground`,
+            `out_of_quota_policy`,
+            `period_count`,
+            `generation`,
+            `required_network_type`,
+            `requires_charging`,
+            `requires_device_idle`,
+            `requires_battery_not_low`,
+            `requires_storage_not_low`,
+            `trigger_content_update_delay`,
+            `trigger_max_content_delay`,
+            `content_uri_triggers`
+            ) SELECT
+            `id`,
+            `state`,
+            `worker_class_name`,
+            `input_merger_class_name`,
+            `input`,
+            `output`,
+            `initial_delay`,
+            `interval_duration`,
+            `flex_duration`,
+            `run_attempt_count`,
+            `backoff_policy`,
+            `backoff_delay_duration`,
+            `last_enqueue_time`,
+            `minimum_retention_duration`,
+            `schedule_requested_at`,
+            `run_in_foreground`,
+            `out_of_quota_policy`,
+            `period_count`,
+            `generation`,
+            `required_network_type`,
+            `requires_charging`,
+            `requires_device_idle`,
+            `requires_battery_not_low`,
+            `requires_storage_not_low`,
+            `trigger_content_update_delay`,
+            `trigger_max_content_delay`,
+            `content_uri_triggers`
+            FROM `WorkSpec`
+INSERT INTO `_new_WorkSpec` (`id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`last_enqueue_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`period_count`,`generation`,`next_schedule_time_override`,`next_schedule_time_override_generation`,`stop_reason`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers`) SELECT `id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`last_enqueue_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`period_count`,`generation`,`next_schedule_time_override`,`next_schedule_time_override_generation`,`stop_reason`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers` FROM `WorkSpec`
+INSERT INTO `_new_WorkSpec` (`id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`last_enqueue_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`period_count`,`generation`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers`) SELECT `id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`last_enqueue_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`period_count`,`generation`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers` FROM `WorkSpec`
+INSERT INTO `_new_WorkSpec` (`id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`last_enqueue_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers`) SELECT `id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`period_start_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers` FROM `WorkSpec`
+INSERT INTO `_new_WorkSpec` (`id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`period_start_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers`) SELECT `id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`period_start_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`required_network_type`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers` FROM `WorkSpec`
+INSERT OR IGNORE INTO `WorkSpec` (`id`,`state`,`worker_class_name`,`input_merger_class_name`,`input`,`output`,`initial_delay`,`interval_duration`,`flex_duration`,`run_attempt_count`,`backoff_policy`,`backoff_delay_duration`,`last_enqueue_time`,`minimum_retention_duration`,`schedule_requested_at`,`run_in_foreground`,`out_of_quota_policy`,`period_count`,`generation`,`next_schedule_time_override`,`next_schedule_time_override_generation`,`stop_reason`,`trace_tag`,`required_network_type`,`required_network_request`,`requires_charging`,`requires_device_idle`,`requires_battery_not_low`,`requires_storage_not_low`,`trigger_content_update_delay`,`trigger_max_content_delay`,`content_uri_triggers`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+If you provide an interpolator, you must set a positive duration
+LicenseDurationRemaining
+PlaybackDurationRemaining
+Repeated chunk with unspecified duration
+Scroll duration must be a positive number
+Session timeout duration set
+Skipping subtitle sample with no duration.
+Summing infinite durations of different signs yields an undefined result.
+UPDATE OR ABORT `WorkSpec` SET `id` = ?,`state` = ?,`worker_class_name` = ?,`input_merger_class_name` = ?,`input` = ?,`output` = ?,`initial_delay` = ?,`interval_duration` = ?,`flex_duration` = ?,`run_attempt_count` = ?,`backoff_policy` = ?,`backoff_delay_duration` = ?,`last_enqueue_time` = ?,`minimum_retention_duration` = ?,`schedule_requested_at` = ?,`run_in_foreground` = ?,`out_of_quota_policy` = ?,`period_count` = ?,`generation` = ?,`next_schedule_time_override` = ?,`next_schedule_time_override_generation` = ?,`stop_reason` = ?,`trace_tag` = ?,`required_network_type` = ?,`required_network_request` = ?,`requires_charging` = ?,`requires_device_idle` = ?,`requires_battery_not_low` = ?,`requires_storage_not_low` = ?,`trigger_content_update_delay` = ?,`trigger_max_content_delay` = ?,`content_uri_triggers` = ? WHERE `id` = ?
+UPDATE workspec SET period_count = 1 WHERE last_enqueue_time <> 0 AND interval_duration <> 0
+Unable to determine duration of static manifest.
+Unsupported base duration index in DTS UHD header: 
+android.media.metadata.DURATION
+archiveDuration
+archiveDurationDays
+backBufferDurationMs
+backoff_delay_duration
+cache_duration
+duration
+duration must be a value of zero or greater
+durationSec
+duration_secs
+firebase_sessions_cache_duration
+flex_duration
+getDuration
+getDurationMillis
+getSleepTimerDurationImpl()I
+getTotalDuration
+getUserAuthenticationValidityDurationSeconds
+interval_duration
+last_enqueue_time = 0 AND interval_duration <> 0 
+mPostponedDurationRunnable
+mediaPresentationDuration
+minimum_retention_duration
+per-operation authentication is not supported (UserAuthenticationValidityDurationSeconds must be >0)
+setDuration
+setMediaDurationMillis
+setMinimumSessionDuration
+setNetworkTransferDurationMillis
+setSessionTimeoutDuration
+sleepTimerDurationImpl
+tvArchiveDuration
+tv_archive_duration
+ duration: 
+, backoffDelayDuration=
+, durationMs=
+, flexDuration=
+, intervalDuration=
+duration
+getDuration
+
+# position (118)
+ now at position 
+ position=
+ scrollPosition=
+ undefined adapter position
+',
+            |   primaryKeyPosition = '
+, buffered position=
+, mCurrentPosition=
+, playbackPositionUs= 
+, position=
+, programSplicePlaybackPositionUs= 
+, videoStartPosition=
+<body><div style='-webkit-user-select:none;position:fixed;top:0;bottom:0;left:0;right:0;color:%s;font-size:%s;line-height:%.2f;text-shadow:%s;'>
+<div style='position:absolute;z-index:%s;%s:%.2f%%;%s:%s;%s:%s;text-align:%s;writing-mode:%s;font-size:%s;background-color:%s;transform:translate(%s%%,%s%%)%s;'>
+<ruby style='ruby-position:over;'>
+<ruby style='ruby-position:under;'>
+<ruby style='ruby-position:unset;'>
+<span style='-webkit-text-emphasis-style:%1$s;text-emphasis-style:%1$s;-webkit-text-emphasis-position:%2$s;text-emphasis-position:%2$s;display:inline-block;'>
+ACTION_SCROLL_TO_POSITION
+AdPlaybackState(adsId=null, adResumePositionUs=0, adGroups=[
+Adapter must implement PreferencePositionCallback
+AnchorInfo{mPosition=
+Cannot find span size for pre layout position. 
+Cannot find span size for pre layout position. It is not cached, not in the adapter. Pos:
+Cannot reset to unset mark position
+Cannot scroll to position a LayoutManager set. Call setLayoutManager with a non-null argument.
+Children enabled at different positions.
+Content-Disposition
+ERROR_BADSTARTPOSITION
+Error: Final position of the spring must be set before the animation starts
+Final position of the spring cannot be greater than the max value.
+Final position of the spring cannot be less than the min value.
+FullSpanItem{mPosition=
+GPSHPositioningError
+Inconsistency detected. Invalid item position 
+Inconsistency detected. Invalid view holder adapter position
+Invalid item position 
+Invalid sheet edge position value: 
+Invalid target position
+Item at position 
+Landroidx/media3/common/IllegalSeekPositionException;
+Layout positions must be non-negative
+Ljava/text/ParsePosition;
+Mandatory element SeekID or SeekPosition not found
+Motion photo metadata: photoStartPosition=
+Passed over target position while smooth scrolling.
+RecyclerView does not support scrolling to an absolute position. Use scrollToPosition instead
+Skipped drawing subtitle cue (invalid horizontal positioning)
+Spurious audio timestamp (frame position mismatch): 
+State{mTargetPosition=
+YCbCrPositioning
+You should override computeScrollVectorForPosition when the LayoutManager does not implement 
+[position = 
+aPosition
+advancePosition
+android:fadeAndShortSlideTransition:screenPosition
+channel_manual_positions
+content-disposition
+dataPosition
+episode_last_played_positions
+extendedPosition
+framePosition
+getBufferPosition
+getFirstVisiblePosition
+getItemIdAtPosition
+getLastVisiblePosition
+getOffsetForPosition
+getPlaybackHeadPosition
+getPlayerClockPositionImpl()I
+getPlayerMenuItemsPositionsImpl()Ljava/lang/String;
+getPosition
+getPositionDescription
+getPositionForView
+getScrapOrHiddenOrCachedHolderForPosition(
+getScrubberPosition
+getSelectedItemPosition
+getSelectedPosition
+getSelectedSubPosition
+getStreamPosition
+getThumbPosition
+invalid position 
+last_played_positions
+markPosition
+measurement.id.rb.attribution.retry_disposition
+measurement.rb.attribution.retry_disposition
+moveToPosition
+offsetPositionRecordsForInsert attached child 
+offsetPositionRecordsForInsert cached 
+offsetPositionRecordsForMove attached child 
+offsetPositionRecordsForMove cached child 
+offsetPositionRecordsForRemove attached child 
+offsetPositionRecordsForRemove cached 
+playerClockPositionImpl
+playerMenuItemsPositionsImpl
+pointToPosition
+position
+positionSelector
+ruby-position
+rubyPosition
+setBufferedPosition
+setDataPosition
+setNextSelectedPositionInt
+setScrubPosition
+setSelectedPosition
+setSelectedPositionInt
+setSelectedPositionSmooth
+setStreamPosition
+setThumbPosition
+streamPosition
+tryGetViewHolderForPositionByDeadline created new ViewHolder
+tryGetViewHolderForPositionByDeadline(
+uniform mat4 uMvpMatrix;
+uniform mat3 uTexMatrix;
+attribute vec4 aPosition;
+attribute vec2 aTexCoords;
+varying vec2 vTexCoords;
+// Standard transformation.
+void main() {
+  gl_Position = uMvpMatrix * aPosition;
+  vTexCoords = (uTexMatrix * vec3(aTexCoords, 1)).xy;
+}
+
+varying vec2 interp_tc_y;
+varying vec2 interp_tc_u;
+varying vec2 interp_tc_v;
+attribute vec4 in_pos;
+attribute vec2 in_tc_y;
+attribute vec2 in_tc_u;
+attribute vec2 in_tc_v;
+void main() {
+  gl_Position = in_pos;
+  interp_tc_y = in_tc_y;
+  interp_tc_u = in_tc_u;
+  interp_tc_v = in_tc_v;
+}
+
+view holder cannot have position -1 unless it is removed
+Failed to load position data
+dataPosition
+filepositions
+position
+setDataPosition
+
+# played (8)
+episode_last_played_positions
+last_played_positions
+now being replayed. These are subject to the filtering rules of the underlying logging system.
+onPreferenceStartFragment is not implemented in the parent activity - attempting to use a fallback implementation. You should implement this method so that you can configure the new fragment that will be displayed, and set a transition between the fragments.
+setPlayedAdMarkerColor
+setPlayedColor
+setUnplayedColor
+setVideoFramesPlayed
+
+# progress (62)
+
+    CREATE TABLE IF NOT EXISTS `WorkProgress` (`work_spec_id` TEXT NOT NULL, `progress`
+    BLOB NOT NULL, PRIMARY KEY(`work_spec_id`), FOREIGN KEY(`work_spec_id`)
+    REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+    
+, progress=
+ACTION_SET_PROGRESS
+Adding BackProgressCallbacks for Animators to operation 
+CREATE TABLE IF NOT EXISTS `WorkProgress` (`work_spec_id` TEXT NOT NULL, `progress` BLOB NOT NULL, PRIMARY KEY(`work_spec_id`), FOREIGN KEY(`work_spec_id`) REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+Connection attempt already in progress
+Could not find WorkManager instance; this may be because an auto-backup is in progress. Ignoring JobScheduler commands for now. Please make sure that you are initializing WorkManager if you have manually disabled WorkManagerInitializer.
+DELETE FROM WorkProgress
+DELETE from WorkProgress where work_spec_id=?
+DROP TABLE IF EXISTS `WorkProgress`
+ERROR_DEVICE_SUPPORT_IN_PROGRESS
+ERROR_JOURNAL_DELETE_IN_PROGRESS
+ERROR_NO_SHUTDOWN_IN_PROGRESS
+ERROR_OPERATION_IN_PROGRESS
+ERROR_OPLOCK_BREAK_IN_PROGRESS
+ERROR_SERVER_SHUTDOWN_IN_PROGRESS
+ERROR_SHUTDOWN_IN_PROGRESS
+INSERT OR REPLACE INTO `WorkProgress` (`work_spec_id`,`progress`) VALUES (?,?)
+IN_PROGRESS
+Landroid/app/ProgressDialog;
+Landroid/widget/ProgressBar;
+Lar/tvplayer/core/ui/view/DelayedProgressBar;
+Lar/tvplayer/tv/base/ui/view/CustomProgressBar;
+Lcom/parse/ProgressCallback;
+Progress display unsupported
+Progressive Rock
+ProgressiveMediaPeriod
+SELECT `progress`,`work_spec_id` FROM `WorkProgress` WHERE `work_spec_id` IN (
+Set uploading progress before finishing the previous upload
+Sign-out occurred while this API call was in progress.
+SpecialEffectsController: Processing Progress 
+WorkProgress
+WorkProgress(androidx.work.impl.model.WorkProgress).
+ Expected:
+
+WorkProgressUpdater
+checkout_progress
+com_parse_ui_progress_dialog_text
+getHighlightProgressOnlyImpl()Z
+getKeyProgressIncrement
+getProgress
+getProgressText
+getSecondProgress
+getSecondaryProgressColor
+handleOnBackProgressed. PREDICTIVE_BACK = true fragment manager 
+highlightProgressOnlyImpl
+is_in_progress
+lambda$progressCallbackOnMainThread$0
+lambda$progressCallbackOnMainThread$1
+onBackProgressed
+onProgress
+onProgressChanged
+progress
+progressCallback
+progressCallbackOnMainThread
+progressDialog
+setKeyProgressIncrement
+setProgress
+setProgressColor
+setProgressDrawable
+setProgressUpdateListener
+setSecondaryProgress
+setSecondaryProgressColor
+, progress=
+
+# history (24)
+Client does not support get purchase history.
+ERROR_PWD_HISTORY_CONFLICT
+Got exception trying to get purchase history, try to reconnect
+HISTORY
+Lcom/android/billingclient/api/PurchaseHistoryRecord;
+PurchaseHistoryRecord. Json: 
+Querying purchase history, item type: 
+getHistoryDayCountImpl()I
+getHistoryProgramsDelayImpl()I
+getPurchaseHistory is not supported on current device
+getPurchaseHistory()
+getShowCurrentProgramsInHistoryImpl()Z
+getShowHistoryButtonImpl()Z
+getShowPastProgramsWithoutCatchupInHistoryImpl()Z
+getShowSearchHistoryImpl()Z
+historyDayCountImpl
+historyProgramsDelayImpl
+history_programs
+obtainNoHistory
+setRemoteInputHistory
+showCurrentProgramsInHistoryImpl
+showHistoryButtonImpl
+showPastProgramsWithoutCatchupInHistoryImpl
+showSearchHistoryImpl
+
+# program (76)
+#EXT-X-PROGRAM-DATE-TIME
+, programDesc=
+, programSplicePlaybackPositionUs= 
+, programStartSeconds=
+, programStopSeconds=
+, programTitle=
+DELETE FROM tvg_programs WHERE tvg_channel_id IN (
+EES program activity
+EES program loaded for appId, activities
+EES programs found
+ERROR_NO_RECOVERY_PROGRAM
+EpgForChannelResponseJs(programs=
+EpgInfoResponseJs(programsMapList=
+ExposureProgram
+Failed to initialize the program
+Failed to load EES program. appId
+Failed to set up the textures and program
+GeneratedJsonAdapter(Program)
+GeneratedJsonAdapter(ProgramForChannel)
+INSERT INTO tvg_programs_fts(tvg_programs_fts) VALUES('optimize')
+Landroid/database/sqlite/SQLiteProgram;
+Lar/tvplayer/core/data/api/stalker/Program;
+Lar/tvplayer/core/data/api/stalker/ProgramForChannel;
+Lar/tvplayer/core/data/api/stalker/ProgramForChannelJsonAdapter;
+Lar/tvplayer/core/data/api/stalker/ProgramJsonAdapter;
+Lar/tvplayer/core/data/db/TvgProgramsDatabase;
+Lar/tvplayer/core/data/db/TvgProgramsDatabase_Impl;
+Lar/tvplayer/tv/tvguide/ui/ProgramsRecyclerView;
+Only suppors one program.
+Only supports one program.
+Program loading failed
+ProgramForChannel(id=
+ProgramInformation
+SCTE-35 SpliceInsertCommand { programSplicePts=
+TvgPrograms.db
+Unable to link shader program: 
+
+dimPastProgramsInChannelsListImpl
+getDimPastProgramsInChannelsListImpl()Z
+getHighlightCurrentProgramsImpl()Z
+getHighlightCurrentProgramsInChannelsListImpl()Z
+getHistoryProgramsDelayImpl()I
+getShouldStoreProgramDescriptionsImpl()Z
+getShowCurrentProgramsInHistoryImpl()Z
+getShowPastProgramsWithoutCatchupInHistoryImpl()Z
+getShowPastProgramsWithoutCatchupOnSearchImpl()Z
+getShowProgramDescriptionInInfoPanelImpl()Z
+getShowProgramDescriptionNextToChannelsImpl()Z
+getShowProgramsNextToChannelsImpl()Z
+getTwoLineProgramTitlesImpl()Z
+getUseBackForQuickProgramsReturnImpl()Z
+glCreateProgram
+glGetProgramInfoLog
+glGetProgramiv
+glLinkProgram
+glUseProgram
+highlightCurrentProgramsImpl
+highlightCurrentProgramsInChannelsListImpl
+historyProgramsDelayImpl
+history_programs
+my_programs
+programStartSeconds
+programs
+programsMapList
+shouldStoreProgramDescriptionsImpl
+showCurrentProgramsInHistoryImpl
+showPastProgramsWithoutCatchupInHistoryImpl
+showPastProgramsWithoutCatchupOnSearchImpl
+showProgramDescriptionInInfoPanelImpl
+showProgramDescriptionNextToChannelsImpl
+showProgramsNextToChannelsImpl
+tvg_programs
+tvg_programs_fts
+twoLineProgramTitlesImpl
+useBackForQuickProgramsReturnImpl
+Lar/tvplayer/core/data/api/stalker/Program;
+Program(name=
+
+# playlist (65)
+
+        SELECT c.id, c.playlist_id, c.stalker_id, c.name, c.tvg_id, c.tvg_name, c.user_tvg_id,
+        c.user_tvg_source_id, c.blocked_tvg_ids
+        FROM channels c
+        LEFT OUTER JOIN channel_tvg_bindings b ON b.channel_id == c.id
+        WHERE c.deleted_time IS NULL AND c.playlist_id IN (
+#EXT-X-PLAYLIST-TYPE
+#EXT-X-PLAYLIST-TYPE:(.+)\b
+, playlistId=
+DefaultHlsPlaylistTracker:MediaPlaylist
+DefaultHlsPlaylistTracker:MultivariantPlaylist
+Failed to load Xtream Codes playlist, url = 
+Failed to parse the playlist, could not identify any tags.
+Failed to update TV guide for Stalker, playlistUrl: 
+HlsPlaylistParser
+Landroid/hardware/display/DisplayManager$DisplayListener;
+Landroidx/media3/exoplayer/hls/playlist/HlsPlaylistParser$DeltaUpdateException;
+Landroidx/media3/exoplayer/hls/playlist/HlsPlaylistTracker$PlaylistResetException;
+Landroidx/media3/exoplayer/hls/playlist/HlsPlaylistTracker$PlaylistStuckException;
+Lar/tvplayer/core/data/repositories/UpdatePlaylistsWorker;
+Lar/tvplayer/tv/settings/ui/playlists/DeletePlaylistActivity;
+Lar/tvplayer/tv/settings/ui/playlists/PlaylistNameActivity;
+Lar/tvplayer/tv/settings/ui/playlists/wizard/PlaylistWizardActivity;
+Loaded playlist has unexpected type.
+PLAYLIST
+Params(playlistId=
+PlaylistRepository
+StalkerPlaylist(playlistUrl=
+UpdatePlaylistsWorker
+XcPlaylist(playlistUrl=
+areAllPlaylistsExpandedImpl
+autoUpdatePlaylist
+deletePlaylist
+enablePlaylist
+getAreAllPlaylistsExpandedImpl()Z
+getGroupsSortingIdForAllPlaylistsImpl()I
+getLastGroupPlaylistIdImpl()J
+getLastMovieCategoryPlaylistIdImpl()J
+getLastSeriesCategoryPlaylistIdImpl()J
+getPlaylistsSortingImpl()I
+getPrevGroupsSortingIdForAllPlaylistsImpl()I
+getRequirePinForPlaylistsImpl()Z
+getShouldGroupChannelsByPlaylistsImpl()Z
+getShouldUpdateTvGuideOnPlaylistsChangeImpl()Z
+getShowAllPlaylistsImpl()Z
+getShowPlaylistAndGroupNameInInfoPanelImpl()Z
+groupsSortingIdForAllPlaylistsImpl
+lastGroupPlaylistIdImpl
+lastMovieCategoryPlaylistIdImpl
+lastSeriesCategoryPlaylistIdImpl
+playlistName
+playlistPremiumOptions
+playlistUnlockPremium
+playlistUrl
+playlist_tvg_source_assignments
+playlists
+playlistsSortingImpl
+prevGroupsSortingIdForAllPlaylistsImpl
+registerDisplayListener
+requirePinForPlaylistsImpl
+shouldGroupChannelsByPlaylistsImpl
+shouldUpdateTvGuideOnPlaylistsChangeImpl
+showAllPlaylistsImpl
+showPlaylistAndGroupNameInInfoPanelImpl
+unregisterDisplayListener
+updatePlaylist
+update_playlists
+Landroidx/media3/exoplayer/hls/playlist/HlsPlaylistParser$DeltaUpdateException;
+Landroidx/media3/exoplayer/hls/playlist/HlsPlaylistTracker$PlaylistStuckException;
+Params(playlistId=
+
+# category (50)
+, categoryId=
+BUSINESS_CATEGORY
+BusinessCategory
+CATEGORY
+ERROR_INVALID_CATEGORY
+GeneratedJsonAdapter(SeriesCategory)
+GeneratedJsonAdapter(VodCategory)
+Landroidx/preference/PreferenceCategory;
+Lar/tvplayer/core/data/api/stalker/VodCategory;
+Lar/tvplayer/core/data/api/stalker/VodCategoryJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/LiveCategory;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesCategory;
+Lar/tvplayer/core/data/api/xtreamcodes/SeriesCategoryJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/VodCategory;
+Lar/tvplayer/core/data/api/xtreamcodes/VodCategoryJsonAdapter;
+LiveCategory(id=
+No enum constant ar.tvplayer.core.data.MovieCategoryType.
+No enum constant ar.tvplayer.core.data.SeriesCategoryType.
+SeriesCategory(id=
+VodCategory(id=
+businessCategory
+businesscategory
+categoryId
+category_id
+category_name
+getLastMovieCategoryIdImpl()J
+getLastMovieCategoryPlaylistIdImpl()J
+getLastMovieCategoryTypeIdImpl()I
+getLastSeriesCategoryIdImpl()J
+getLastSeriesCategoryPlaylistIdImpl()J
+getLastSeriesCategoryTypeIdImpl()I
+item_category
+item_category2
+item_category3
+item_category4
+item_category5
+lastMovieCategoryIdImpl
+lastMovieCategoryPlaylistIdImpl
+lastMovieCategoryTypeIdImpl
+lastSeriesCategoryIdImpl
+lastSeriesCategoryPlaylistIdImpl
+lastSeriesCategoryTypeIdImpl
+order does not contain a valid category.
+setCategory
+, categoryId=
+GeneratedJsonAdapter(LiveCategory)
+Lar/tvplayer/core/data/api/xtreamcodes/LiveCategory;
+Lar/tvplayer/core/data/api/xtreamcodes/LiveCategoryJsonAdapter;
+category_id
+category_name
+
+# stream (794)
+
+The InputStream implementation is buggy.
+ because ACTION_DOWN was not received for this pointer before ACTION_MOVE. It likely happened because  ViewDragHelper did not receive all the events in the event stream.
+ stream=
+#EXT-X-I-FRAME-STREAM-INF
+#EXT-X-STREAM-INF
+#EXT-X-STREAM-INF must be followed by another line
+$default$parallelStream
+$default$stream
+) could read the stream.
+, liveStreams=
+, vodStreams=
+.inputStream()
+.outputStream()
+AAC audio stream must include config fmtp parameter
+ASN1InputStream.java
+ASN1OutputStream.java
+ASN1StreamParser.java
+Attempting to play RTMP stream without depending on the RTMP extension
+AviStreamHeaderChunk
+BEROutputStream.java
+BaseStreamCipher.java
+BufferedBEROctetStream
+BufferedInputStream is closed
+ByteQueueInputStream.java
+ByteQueueOutputStream.java
+ByteStreams.nullOutputStream()
+Cannot create SeekableByteOrderedDataInputStream with stream that does not support mark/reset
+Cannot find sync byte. Most likely not a Transport Stream.
+Cannot stream a request body without chunked encoding or a known content length!
+Cannot use InputStream in non-blocking mode! Use offerInput() instead.
+Cannot use OutputStream in non-blocking mode! Use offerOutput() instead.
+Cannot use getAvailableInputBytes() in blocking mode! Use getInputStream().available() instead.
+Cannot use getAvailableOutputBytes() in blocking mode! Use getOutputStream() instead.
+Cannot use offerInput() in blocking mode! Use getInputStream() instead.
+Cannot use offerOutput() in blocking mode! Use getOutputStream() instead.
+Cannot use readInput() in blocking mode! Use getInputStream() instead.
+Cannot use readOutput() in blocking mode! Use getOutputStream() instead.
+CatchupData(streamId=
+ChunkSampleStream
+CipherInputStream.java
+CipherOutputStream.java
+CodedInputStream encountered a malformed varint.
+CodedInputStream encountered an embedded string or message which claimed to have negative size.
+CodedOutputStream was writing to a flat byte array and ran out of space.
+CodedOutputStream was writing to a flat byte array and ran out of space.: 
+ConstructedOctetStream.java
+Contains sub-stream with an invalid packet label 
+Could not parse the inputstream
+DEROutputStream.java
+DLOutputStream.java
+Data size mismatch between stream (
+Decoded GIF from stream in 
+DefiniteLengthInputStream.java
+DigestInputStream.java
+DoubleStream.adapt(Spliterator<Double> s)
+END_STREAM
+ERROR_NOT_TINY_STREAM
+ERROR_SECURITY_STREAM_IS_INCONSISTENT
+End of stream reached having not read sufficient data.
+Error closing HTTP compressed POST connection output stream. appId
+Error closing stream: 
+Error processing stream 
+Error reading data from stream
+EventStream
+ExposedByteArrayOutputStream
+Extra data detected in stream
+FILE_ACTION_ADDED_STREAM
+FILE_ACTION_MODIFIED_STREAM
+FILE_ACTION_REMOVED_STREAM
+FILE_ATTRIBUTE_INTEGRITY_STREAM
+Failed to determine bitstream type
+Failed to obtain InputStream
+Failed to perform action on InputStream for SMB, filePath: 
+Failed to perform action on OutputStream for SMB, filePath: 
+Failed to read EXIF from HEIF file. Given stream is either malformed or unsupported.
+Failed to read FLAC stream marker.
+Found unsupported streamType fourCC: 
+GeneratedJsonAdapter(LiveStream)
+GeneratedJsonAdapter(VodStream)
+HlsSampleStreamWrapper
+INSTREAM-ID="((?:CC|SERVICE)\d+)"
+IOException converting stream to byte array: 
+IOException occurred while closing InputStream
+ImplicitOutputStream
+InbandEventStream
+IndefiniteLengthInputStream.java
+InputStream is null for 
+IntStream.adapt(Spliterator<Integer> s)
+Invalid Input Stream for creating an Iso7816CertificateStructure
+Invalid sample rate for Dolby TrueHD MLP stream: 
+Invalid zip data. Stream ended after $totalBytesRead bytes. Expected 
+Landroid/content/res/AssetManager$AssetInputStream;
+Landroid/media/AudioTrack$StreamEventCallback;
+Landroid/util/Base64OutputStream;
+Landroidx/datastore/preferences/protobuf/CodedOutputStream$OutOfSpaceException;
+Landroidx/media3/exoplayer/smoothstreaming/SsMediaSource$Factory;
+Landroidx/media3/exoplayer/smoothstreaming/manifest/SsManifestParser$MissingFieldException;
+Landroidx/media3/exoplayer/upstream/Loader$UnexpectedLoaderException;
+Lar/tvplayer/core/data/api/xtreamcodes/LiveStream;
+Lar/tvplayer/core/data/api/xtreamcodes/LiveStreamJsonAdapter;
+Lar/tvplayer/core/data/api/xtreamcodes/VodStream;
+Lar/tvplayer/core/data/api/xtreamcodes/VodStreamJsonAdapter;
+Lcom/google/crypto/tink/shaded/protobuf/CodedOutputStream$OutOfSpaceException;
+Lcom/google/gson/stream/MalformedJsonException;
+LimitedInputStream.java
+LiveStream(id=
+Lj$/util/stream/A0;
+Lj$/util/stream/A1;
+Lj$/util/stream/A2;
+Lj$/util/stream/A3;
+Lj$/util/stream/A;
+Lj$/util/stream/B0;
+Lj$/util/stream/B1;
+Lj$/util/stream/B2;
+Lj$/util/stream/B3;
+Lj$/util/stream/B;
+Lj$/util/stream/C0;
+Lj$/util/stream/C1;
+Lj$/util/stream/C2;
+Lj$/util/stream/C3;
+Lj$/util/stream/C;
+Lj$/util/stream/D0;
+Lj$/util/stream/D1;
+Lj$/util/stream/D2;
+Lj$/util/stream/D3;
+Lj$/util/stream/D;
+Lj$/util/stream/E0;
+Lj$/util/stream/E1;
+Lj$/util/stream/E2;
+Lj$/util/stream/E3;
+Lj$/util/stream/E;
+Lj$/util/stream/F0;
+Lj$/util/stream/F1;
+Lj$/util/stream/F2;
+Lj$/util/stream/F3;
+Lj$/util/stream/F;
+Lj$/util/stream/G0;
+Lj$/util/stream/G1;
+Lj$/util/stream/G2;
+Lj$/util/stream/G3;
+Lj$/util/stream/G;
+Lj$/util/stream/H0;
+Lj$/util/stream/H1;
+Lj$/util/stream/H2;
+Lj$/util/stream/H3;
+Lj$/util/stream/H;
+Lj$/util/stream/I0;
+Lj$/util/stream/I1;
+Lj$/util/stream/I2;
+Lj$/util/stream/I3;
+Lj$/util/stream/I;
+Lj$/util/stream/IntStream$VivifiedWrapper;
+Lj$/util/stream/IntStream$Wrapper;
+Lj$/util/stream/IntStream;
+Lj$/util/stream/J0;
+Lj$/util/stream/J1;
+Lj$/util/stream/J2;
+Lj$/util/stream/J3;
+Lj$/util/stream/J;
+Lj$/util/stream/K0;
+Lj$/util/stream/K1;
+Lj$/util/stream/K2;
+Lj$/util/stream/K3;
+Lj$/util/stream/K;
+Lj$/util/stream/L0;
+Lj$/util/stream/L1;
+Lj$/util/stream/L2;
+Lj$/util/stream/L3;
+Lj$/util/stream/L;
+Lj$/util/stream/M0;
+Lj$/util/stream/M1;
+Lj$/util/stream/M2;
+Lj$/util/stream/M3;
+Lj$/util/stream/M;
+Lj$/util/stream/N0;
+Lj$/util/stream/N1;
+Lj$/util/stream/N2;
+Lj$/util/stream/N3;
+Lj$/util/stream/N;
+Lj$/util/stream/O0;
+Lj$/util/stream/O1;
+Lj$/util/stream/O2;
+Lj$/util/stream/O3;
+Lj$/util/stream/O;
+Lj$/util/stream/P0;
+Lj$/util/stream/P1;
+Lj$/util/stream/P2;
+Lj$/util/stream/P3;
+Lj$/util/stream/P;
+Lj$/util/stream/Q0;
+Lj$/util/stream/Q1;
+Lj$/util/stream/Q2;
+Lj$/util/stream/Q3;
+Lj$/util/stream/Q;
+Lj$/util/stream/R0;
+Lj$/util/stream/R1;
+Lj$/util/stream/R2;
+Lj$/util/stream/R3;
+Lj$/util/stream/S0;
+Lj$/util/stream/S1;
+
+# tvg (108)
+
+        SELECT c.id, c.playlist_id, c.stalker_id, c.name, c.tvg_id, c.tvg_name, c.user_tvg_id,
+        c.user_tvg_source_id, c.blocked_tvg_ids
+        FROM channels c
+        LEFT OUTER JOIN channel_tvg_bindings b ON b.channel_id == c.id
+        WHERE c.deleted_time IS NULL AND c.playlist_id IN (
+) AND IFNULL(b.is_tvg_updated, 0) == 0
+DELETE FROM tvg_channels WHERE id IN (
+DELETE FROM tvg_programs WHERE tvg_channel_id IN (
+INSERT INTO tvg_programs_fts(tvg_programs_fts) VALUES('optimize')
+Lar/tvplayer/core/data/db/TvgProgramsDatabase;
+Lar/tvplayer/core/data/db/TvgProgramsDatabase_Impl;
+Lar/tvplayer/core/data/repositories/UpdateTvGuideForChannelWorker;
+Lar/tvplayer/core/data/repositories/UpdateTvGuideWorker;
+Lar/tvplayer/tv/settings/ui/tvguide/DeleteTvGuideSourceActivity;
+Lar/tvplayer/tv/settings/ui/tvguide/TvGuideSourceNameActivity;
+Lar/tvplayer/tv/settings/ui/tvguide/TvGuideUrlActivity;
+Lar/tvplayer/tv/tvguide/ui/ProgramsRecyclerView;
+TvGuideRepository
+TvgPrograms.db
+ar.tvplayer.tv.settings.TvGuideUrl
+autoPlayChannelsOnTvGuideImpl
+channel_tvg_bindings
+daysToKeepTvGuideImpl
+defaultTvgSourceId
+defaultTvgSourceIdImpl
+getAutoPlayChannelsOnTvGuideImpl()Z
+getDaysToKeepTvGuideImpl()I
+getDefaultTvgSourceIdImpl()J
+getLastTvGuideUpdateChannelCountImpl()I
+getLastTvGuideUpdateFailedUrlImpl()Ljava/lang/String;
+getLastTvGuideUpdateTimeImpl()J
+getRemoteButtonBackActionTvGuideImpl()I
+getRemoteButtonBackspaceActionTvGuideImpl()I
+getRemoteButtonBlueActionTvGuideImpl()I
+getRemoteButtonFastForwardActionTvGuideImpl()I
+getRemoteButtonGreenActionTvGuideImpl()I
+getRemoteButtonGuideActionTvGuideImpl()I
+getRemoteButtonInfoActionTvGuideImpl()I
+getRemoteButtonLeftActionTvGuideImpl()I
+getRemoteButtonLongBackActionTvGuideImpl()I
+getRemoteButtonLongMenuActionTvGuideImpl()I
+getRemoteButtonLongOkActionTvGuideImpl()I
+getRemoteButtonLongPlayPauseActionTvGuideImpl()I
+getRemoteButtonMenuActionTvGuideImpl()I
+getRemoteButtonOkActionTvGuideImpl()I
+getRemoteButtonPageDownActionTvGuideImpl()I
+getRemoteButtonPageUpActionTvGuideImpl()I
+getRemoteButtonPlayPauseActionTvGuideImpl()I
+getRemoteButtonRecordActionTvGuideImpl()I
+getRemoteButtonRedActionTvGuideImpl()I
+getRemoteButtonRewindActionTvGuideImpl()I
+getRemoteButtonRightActionTvGuideImpl()I
+getRemoteButtonStopActionTvGuideImpl()I
+getRemoteButtonYellowActionTvGuideImpl()I
+getRequirePinForTvGuideImpl()Z
+getShouldUpdateTvGuideOnAppStartImpl()Z
+getShouldUpdateTvGuideOnPlaylistsChangeImpl()Z
+getShowTvGuideButtonImpl()Z
+getStayOnTvGuideInPreviewImpl()Z
+getTvGuidePriorityImpl()I
+getTvGuideUpdateIntervalDaysImpl()I
+getTvGuideUpdateIntervalHoursImpl()I
+getTvGuideUrlImpl()Ljava/lang/String;
+isAnimatedTvGuidePreviewImpl
+isAnimatedTvGuidePreviewImpl()Z
+isLastTvGuideUpdateSuccessImpl
+isLastTvGuideUpdateSuccessImpl()Z
+isPreviewOnTvGuideEnabledImpl
+isPreviewOnTvGuideEnabledImpl()Z
+lastTvGuideUpdateChannelCountImpl
+lastTvGuideUpdateFailedUrlImpl
+lastTvGuideUpdateTimeImpl
+playlist_tvg_source_assignments
+remoteButtonBackActionTvGuideImpl
+remoteButtonBackspaceActionTvGuideImpl
+remoteButtonBlueActionTvGuideImpl
+remoteButtonFastForwardActionTvGuideImpl
+remoteButtonGreenActionTvGuideImpl
+remoteButtonGuideActionTvGuideImpl
+remoteButtonInfoActionTvGuideImpl
+remoteButtonLeftActionTvGuideImpl
+remoteButtonLongBackActionTvGuideImpl
+remoteButtonLongMenuActionTvGuideImpl
+remoteButtonLongOkActionTvGuideImpl
+remoteButtonLongPlayPauseActionTvGuideImpl
+remoteButtonMenuActionTvGuideImpl
+remoteButtonOkActionTvGuideImpl
+remoteButtonPageDownActionTvGuideImpl
+remoteButtonPageUpActionTvGuideImpl
+remoteButtonPlayPauseActionTvGuideImpl
+remoteButtonRecordActionTvGuideImpl
+remoteButtonRedActionTvGuideImpl
+remoteButtonRewindActionTvGuideImpl
+remoteButtonRightActionTvGuideImpl
+remoteButtonStopActionTvGuideImpl
+remoteButtonYellowActionTvGuideImpl
+requirePinForTvGuideImpl
+shouldUpdateTvGuideOnAppStartImpl
+shouldUpdateTvGuideOnPlaylistsChangeImpl
+showTvGuideButtonImpl
+stayOnTvGuideInPreviewImpl
+tvGuidePriorityImpl
+tvGuideSources
+tvGuideUpdateIntervalDaysImpl
+tvGuideUpdateIntervalHoursImpl
+tvGuideUrl
+tvGuideUrlImpl
+tvg_channels
+tvg_programs
+tvg_programs_fts
+tvg_source_id
+tvg_sources
+
+# backup (6)
+Could not find WorkManager instance; this may be because an auto-backup is in progress. Ignoring JobScheduler commands for now. Please make sure that you are initializing WorkManager if you have manually disabled WorkManagerInitializer.
+ERROR_BACKUP_CONTROLLER
+ERROR_FT_READ_RECOVERY_FROM_BACKUP
+FILE_OPEN_FOR_BACKUP_INTENT
+Must set a non-null database name to a configuration that uses the no backup directory.
+getNoBackupFilesDir
+
+# restore (30)
+Bundle with restored state for the component "androidx.savedstate.Restarter" must contain list of strings by the key "classes_to_restore"
+Derived class did not call super.onRestoreInstanceState()
+Failed to restore view hierarchy state for fragment 
+Invalid bundle passed as restored state
+SavedStateRegistry was already restored.
+You must call performAttach() before calling performRestore(Bundle).
+classes_to_restore
+dispatchRestoreInstanceState
+mRestored
+onRestoreInstanceState
+onViewStateRestored
+performRestore cannot be called when owner is 
+restore
+restoreAllState: back stack #
+restoreAnonymity
+restoreAuthenticationAsync
+restoreCallingIdentity
+restoreChildFragmentState
+restoreHierarchyState
+restoreKeys
+restoreSaveState: active (
+restoreSaveState: added (
+restoreSaveState: re-attaching retained 
+restoreState
+restoreToCount
+restoreViewState
+You can consumeRestoredStateForKey only after super.onCreate of corresponding component
+restore
+restoreCallingIdentity
+restoreToCount
+
+# database (118)
+ is missing in the database configuration.
+ jobs tracked by WorkManager's database;
+the Configuration limit is 
+ was required but not found. Please provide the necessary Migration path via RoomDatabase.Builder.addMigration(...) or allow for destructive migrations via one of the RoomDatabase.Builder.fallbackToDestructiveMigration* methods.
+ was required but not found. Please provide the necessary Migration path via RoomDatabase.Builder.addMigration(Migration ...) or allow for destructive migrations via one of the RoomDatabase.Builder.fallbackToDestructiveMigration* methods.
+) is missing in the database configuration.
+Cannot build a database with null or empty name. If you are trying to create an in memory database, use Room.inMemoryDatabaseBuilder
+Cannot build a database with the special name ':memory:'. If you are trying to create an in memory database, use Room.inMemoryDatabaseBuilder
+Cannot create auto-closing database for an in-memory database.
+Conditional user property too long for local database. Sending directly to service
+Database error
+Database error getting next bundle app id
+Database error querying filter results. appId
+Database error querying filters. appId
+Database error querying scoped filters. appId
+Database error while trying to delete uploaded bundles
+Database open failed
+Database returned empty set
+ERROR_DATABASE_DOES_NOT_EXIST
+ERROR_DRIVER_DATABASE_ERROR
+ERROR_SERVICE_DATABASE_LOCKED
+Error deleting app launch break from local database
+Error deleting app launch break from local database in reasonable time
+Error opening database
+Error querying database.
+Error reading entries from local database
+Error writing entry to local database
+Error writing entry; local database full
+Event is too long for local database. Sending event directly to service
+Exception while computing database live data.
+Failed to load conditional user property from local database
+Failed to load event from local database
+Failed to load user property from local database
+Failed to open freshly created database
+Failed to open local database. Events will bypass local storage
+Failed to read events from database in reasonable time
+Failed to turn off database read permission
+Failed to turn off database write permission
+Failed to turn on database read permission for owner
+Failed to turn on database write permission for owner
+Failed to write entry to local database
+Fewer entries removed from local database than expected
+Invalid database parent file, not a directory: 
+Landroid/database/ContentObserver;
+Landroid/database/Cursor;
+Landroid/database/DataSetObserver;
+Landroid/database/DatabaseErrorHandler;
+Landroid/database/MatrixCursor;
+Landroid/database/Observable;
+Landroid/database/SQLException;
+Landroid/database/sqlite/SQLiteAccessPermException;
+Landroid/database/sqlite/SQLiteCantOpenDatabaseException;
+Landroid/database/sqlite/SQLiteClosable;
+Landroid/database/sqlite/SQLiteConstraintException;
+Landroid/database/sqlite/SQLiteCursor;
+Landroid/database/sqlite/SQLiteCursorDriver;
+Landroid/database/sqlite/SQLiteDatabase$CursorFactory;
+Landroid/database/sqlite/SQLiteDatabase;
+Landroid/database/sqlite/SQLiteDatabaseCorruptException;
+Landroid/database/sqlite/SQLiteDatabaseLockedException;
+Landroid/database/sqlite/SQLiteDiskIOException;
+Landroid/database/sqlite/SQLiteException;
+Landroid/database/sqlite/SQLiteFullException;
+Landroid/database/sqlite/SQLiteOpenHelper;
+Landroid/database/sqlite/SQLiteProgram;
+Landroid/database/sqlite/SQLiteQuery;
+Landroid/database/sqlite/SQLiteStatement;
+Landroid/database/sqlite/SQLiteTableLockedException;
+Landroid/database/sqlite/SQLiteTransactionListener;
+Landroidx/media3/database/DatabaseIOException;
+Landroidx/work/impl/WorkDatabase;
+Landroidx/work/impl/WorkDatabase_Impl;
+Lar/tvplayer/core/data/db/TvPlayerDatabase;
+Lar/tvplayer/core/data/db/TvPlayerDatabase_Impl;
+Lar/tvplayer/core/data/db/TvgProgramsDatabase;
+Lar/tvplayer/core/data/db/TvgProgramsDatabase_Impl;
+Lcom/parse/OfflineStore$SQLiteDatabaseCallable;
+Lcom/parse/OfflineStore$SQLiteDatabaseCallable<
+Lcom/parse/ParseSQLiteDatabase;
+Loaded invalid null value from database
+Lokhttp3/internal/publicsuffix/PublicSuffixDatabase;
+Must set a non-null database name to a configuration that uses the no backup directory.
+New GMP App Id passed in. Removing cached database data. appId
+Opening the database failed, dropping and recreating it
+Opening the local database failed, dropping and recreating it
+Pre-packaged database has an invalid schema: 
+Retrieved last session number from database does not contain a valid (long) value
+SQLiteDatabaseCallable
+Unknown record type in local database
+User property too long for local database. Sending directly to service
+databaseUrl
+deleteDatabase
+firebase_database_url
+getDatabaseAsync
+getDatabaseName
+getDatabasePath
+getReadableDatabase
+getWritableDatabase
+getWritableDatabaseAsync
+lambda$openDatabaseAsync$1
+measurement.dma_consent.service_database_update_fix
+measurement.dma_consent.services_database_update_fix
+openDatabaseAsync
+Cannot access database on a different coroutine context inherited from a suspending transaction.
+Cannot access database on the main thread since it may potentially lock the UI for a long period of time.
+Corruption reported by sqlite on database: 
+Landroid/database/AbstractCursor;
+Landroid/database/AbstractWindowedCursor;
+Landroid/database/Cursor;
+Landroid/database/CursorWindow;
+Landroid/database/MatrixCursor;
+Landroid/database/sqlite/SQLiteDatabase;
+Landroid/database/sqlite/SQLiteException;
+Landroidx/work/impl/WorkDatabase;
+Landroidx/work/impl/WorkDatabase_Impl;
+Lcom/parse/ParseSQLiteDatabase;
+Recursive database initialization detected. Did you try to use the database instance during initialization? Maybe in one of the callbacks?
+deleteDatabase
+deleting the database file: 
+
+# CREATE TABLE (42)
+
+    CREATE TABLE IF NOT EXISTS `SystemIdInfo` (`work_spec_id` TEXT NOT NULL, `system_id`
+    INTEGER NOT NULL, PRIMARY KEY(`work_spec_id`), FOREIGN KEY(`work_spec_id`)
+    REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+    
+
+    CREATE TABLE IF NOT EXISTS `WorkProgress` (`work_spec_id` TEXT NOT NULL, `progress`
+    BLOB NOT NULL, PRIMARY KEY(`work_spec_id`), FOREIGN KEY(`work_spec_id`)
+    REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+    
+CREATE TABLE Dependencies (key TEXT NOT NULL, uuid TEXT NOT NULL, PRIMARY KEY(key, uuid));
+CREATE TABLE IF NOT EXISTS `Dependency` (`work_spec_id` TEXT NOT NULL, `prerequisite_id` TEXT NOT NULL, PRIMARY KEY(`work_spec_id`, `prerequisite_id`), FOREIGN KEY(`work_spec_id`) REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE , FOREIGN KEY(`prerequisite_id`) REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `Preference` (`key` TEXT NOT NULL, `long_value` INTEGER, PRIMARY KEY(`key`))
+CREATE TABLE IF NOT EXISTS `SystemIdInfo` (`work_spec_id` TEXT NOT NULL, `generation` INTEGER NOT NULL DEFAULT 0, `system_id` INTEGER NOT NULL, PRIMARY KEY(`work_spec_id`, `generation`), FOREIGN KEY(`work_spec_id`) REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `WorkName` (`name` TEXT NOT NULL, `work_spec_id` TEXT NOT NULL, PRIMARY KEY(`name`, `work_spec_id`), FOREIGN KEY(`work_spec_id`) REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `WorkProgress` (`work_spec_id` TEXT NOT NULL, `progress` BLOB NOT NULL, PRIMARY KEY(`work_spec_id`), FOREIGN KEY(`work_spec_id`) REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT NOT NULL, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL DEFAULT -1, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `generation` INTEGER NOT NULL DEFAULT 0, `next_schedule_time_override` INTEGER NOT NULL DEFAULT 9223372036854775807, `next_schedule_time_override_generation` INTEGER NOT NULL DEFAULT 0, `stop_reason` INTEGER NOT NULL DEFAULT -256, `trace_tag` TEXT, `required_network_type` INTEGER NOT NULL, `required_network_request` BLOB NOT NULL DEFAULT x'', `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `WorkTag` (`tag` TEXT NOT NULL, `work_spec_id` TEXT NOT NULL, PRIMARY KEY(`tag`, `work_spec_id`), FOREIGN KEY(`work_spec_id`) REFERENCES `WorkSpec`(`id`) ON UPDATE CASCADE ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `_new_SystemIdInfo` (
+            `work_spec_id` TEXT NOT NULL, 
+            `generation` INTEGER NOT NULL DEFAULT 0, 
+            `system_id` INTEGER NOT NULL, 
+            PRIMARY KEY(`work_spec_id`, `generation`), 
+            FOREIGN KEY(`work_spec_id`) REFERENCES `WorkSpec`(`id`) 
+                ON UPDATE CASCADE ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (
+                `id` TEXT NOT NULL,
+                `state` INTEGER NOT NULL,
+                `worker_class_name` TEXT NOT NULL,
+                `input_merger_class_name` TEXT NOT NULL,
+                `input` BLOB NOT NULL,
+                `output` BLOB NOT NULL,
+                `initial_delay` INTEGER NOT NULL,
+                `interval_duration` INTEGER NOT NULL,
+                `flex_duration` INTEGER NOT NULL,
+                `run_attempt_count` INTEGER NOT NULL,
+                `backoff_policy` INTEGER NOT NULL,
+                `backoff_delay_duration` INTEGER NOT NULL,
+                `last_enqueue_time` INTEGER NOT NULL,
+                `minimum_retention_duration` INTEGER NOT NULL,
+                `schedule_requested_at` INTEGER NOT NULL,
+                `run_in_foreground` INTEGER NOT NULL,
+                `out_of_quota_policy` INTEGER NOT NULL,
+                `period_count` INTEGER NOT NULL DEFAULT 0,
+                `generation` INTEGER NOT NULL DEFAULT 0,
+                `required_network_type` INTEGER NOT NULL,
+                `requires_charging` INTEGER NOT NULL,
+                `requires_device_idle` INTEGER NOT NULL,
+                `requires_battery_not_low` INTEGER NOT NULL,
+                `requires_storage_not_low` INTEGER NOT NULL,
+                `trigger_content_update_delay` INTEGER NOT NULL,
+                `trigger_max_content_delay` INTEGER NOT NULL,
+                `content_uri_triggers` BLOB NOT NULL,
+                PRIMARY KEY(`id`)
+                )
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT NOT NULL, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL DEFAULT -1, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `generation` INTEGER NOT NULL DEFAULT 0, `next_schedule_time_override` INTEGER NOT NULL DEFAULT 9223372036854775807, `next_schedule_time_override_generation` INTEGER NOT NULL DEFAULT 0, `stop_reason` INTEGER NOT NULL DEFAULT -256, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT NOT NULL, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `generation` INTEGER NOT NULL DEFAULT 0, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `last_enqueue_time` INTEGER NOT NULL, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `period_count` INTEGER NOT NULL DEFAULT 0, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `_new_WorkSpec` (`id` TEXT NOT NULL, `state` INTEGER NOT NULL, `worker_class_name` TEXT NOT NULL, `input_merger_class_name` TEXT, `input` BLOB NOT NULL, `output` BLOB NOT NULL, `initial_delay` INTEGER NOT NULL, `interval_duration` INTEGER NOT NULL, `flex_duration` INTEGER NOT NULL, `run_attempt_count` INTEGER NOT NULL, `backoff_policy` INTEGER NOT NULL, `backoff_delay_duration` INTEGER NOT NULL, `period_start_time` INTEGER NOT NULL, `minimum_retention_duration` INTEGER NOT NULL, `schedule_requested_at` INTEGER NOT NULL, `run_in_foreground` INTEGER NOT NULL, `out_of_quota_policy` INTEGER NOT NULL, `required_network_type` INTEGER NOT NULL, `requires_charging` INTEGER NOT NULL, `requires_device_idle` INTEGER NOT NULL, `requires_battery_not_low` INTEGER NOT NULL, `requires_storage_not_low` INTEGER NOT NULL, `trigger_content_update_delay` INTEGER NOT NULL, `trigger_max_content_delay` INTEGER NOT NULL, `content_uri_triggers` BLOB NOT NULL, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS app2 ( app_id TEXT NOT NULL, first_open_count INTEGER NOT NULL, PRIMARY KEY (app_id));
+CREATE TABLE IF NOT EXISTS apps ( app_id TEXT NOT NULL, app_instance_id TEXT, gmp_app_id TEXT, resettable_device_id_hash TEXT, last_bundle_index INTEGER NOT NULL, last_bundle_end_timestamp INTEGER NOT NULL, PRIMARY KEY (app_id)) ;
+CREATE TABLE IF NOT EXISTS audience_filter_values ( app_id TEXT NOT NULL, audience_id INTEGER NOT NULL, current_results BLOB, PRIMARY KEY (app_id, audience_id));
+CREATE TABLE IF NOT EXISTS conditional_properties ( app_id TEXT NOT NULL, origin TEXT NOT NULL, name TEXT NOT NULL, value BLOB NOT NULL, creation_timestamp INTEGER NOT NULL, active INTEGER NOT NULL, trigger_event_name TEXT, trigger_timeout INTEGER NOT NULL, timed_out_event BLOB,triggered_event BLOB, triggered_timestamp INTEGER NOT NULL, time_to_live INTEGER NOT NULL, expired_event BLOB, PRIMARY KEY (app_id, name)) ;
+CREATE TABLE IF NOT EXISTS consent_settings ( app_id TEXT NOT NULL, consent_state TEXT NOT NULL, PRIMARY KEY (app_id));
+CREATE TABLE IF NOT EXISTS default_event_params ( app_id TEXT NOT NULL, parameters BLOB NOT NULL, PRIMARY KEY (app_id));
+CREATE TABLE IF NOT EXISTS event_filters ( app_id TEXT NOT NULL, audience_id INTEGER NOT NULL, filter_id INTEGER NOT NULL, event_name TEXT NOT NULL, data BLOB NOT NULL, PRIMARY KEY (app_id, event_name, audience_id, filter_id));
+CREATE TABLE IF NOT EXISTS events ( app_id TEXT NOT NULL, name TEXT NOT NULL, lifetime_count INTEGER NOT NULL, current_bundle_count INTEGER NOT NULL, last_fire_timestamp INTEGER NOT NULL, PRIMARY KEY (app_id, name)) ;
+CREATE TABLE IF NOT EXISTS events_snapshot ( app_id TEXT NOT NULL, name TEXT NOT NULL, lifetime_count INTEGER NOT NULL, current_bundle_count INTEGER NOT NULL, last_fire_timestamp INTEGER NOT NULL, last_bundled_timestamp INTEGER, last_bundled_day INTEGER, last_sampled_complex_event_id INTEGER, last_sampling_rate INTEGER, last_exempt_from_sampling INTEGER, current_session_count INTEGER, PRIMARY KEY (app_id, name)) ;
+CREATE TABLE IF NOT EXISTS main_event_params ( app_id TEXT NOT NULL, event_id TEXT NOT NULL, children_to_process INTEGER NOT NULL, main_event BLOB NOT NULL, PRIMARY KEY (app_id));
+CREATE TABLE IF NOT EXISTS property_filters ( app_id TEXT NOT NULL, audience_id INTEGER NOT NULL, filter_id INTEGER NOT NULL, property_name TEXT NOT NULL, data BLOB NOT NULL, PRIMARY KEY (app_id, property_name, audience_id, filter_id));
+CREATE TABLE IF NOT EXISTS queue ( app_id TEXT NOT NULL, bundle_end_timestamp INTEGER NOT NULL, data BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS raw_events ( app_id TEXT NOT NULL, name TEXT NOT NULL, timestamp INTEGER NOT NULL, metadata_fingerprint INTEGER NOT NULL, data BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS raw_events_metadata ( app_id TEXT NOT NULL, metadata_fingerprint INTEGER NOT NULL, metadata BLOB NOT NULL, PRIMARY KEY (app_id, metadata_fingerprint));
+CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)
+CREATE TABLE IF NOT EXISTS trigger_uris ( app_id TEXT NOT NULL, trigger_uri TEXT NOT NULL, timestamp_millis INTEGER NOT NULL, source INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS upload_queue ( app_id TEXT NOT NULL, upload_uri TEXT NOT NULL, upload_headers TEXT NOT NULL, upload_type INTEGER NOT NULL, measurement_batch BLOB NOT NULL, retry_count INTEGER NOT NULL, creation_timestamp INTEGER NOT NULL );
+CREATE TABLE IF NOT EXISTS user_attributes ( app_id TEXT NOT NULL, name TEXT NOT NULL, set_timestamp INTEGER NOT NULL, value BLOB NOT NULL, PRIMARY KEY (app_id, name)) ;
+CREATE TABLE ParseObjects (uuid TEXT PRIMARY KEY, className TEXT NOT NULL, objectId TEXT, json TEXT, isDeletingEventually INTEGER DEFAULT 0, UNIQUE(className, objectId));
+CREATE TABLE event_metadata (_id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL,FOREIGN KEY (event_id) REFERENCES events(_id) ON DELETE CASCADE)
+CREATE TABLE event_payloads (sequence_num INTEGER NOT NULL, event_id INTEGER NOT NULL, bytes BLOB NOT NULL,FOREIGN KEY (event_id) REFERENCES events(_id) ON DELETE CASCADE,PRIMARY KEY (sequence_num, event_id))
+CREATE TABLE events (_id INTEGER PRIMARY KEY, context_id INTEGER NOT NULL, transport_name TEXT NOT NULL, timestamp_ms INTEGER NOT NULL, uptime_ms INTEGER NOT NULL, payload BLOB NOT NULL, code INTEGER, num_attempts INTEGER NOT NULL,FOREIGN KEY (context_id) REFERENCES transport_contexts(_id) ON DELETE CASCADE)
+CREATE TABLE global_log_event_state (last_metrics_upload_ms BIGINT PRIMARY KEY)
+CREATE TABLE log_event_dropped (log_source VARCHAR(45) NOT NULL,reason INTEGER NOT NULL,events_dropped_count BIGINT NOT NULL,PRIMARY KEY(log_source, reason))
+CREATE TABLE transport_contexts (_id INTEGER PRIMARY KEY, backend_name TEXT NOT NULL, priority INTEGER NOT NULL, next_request_ms INTEGER NOT NULL)
+create table if not exists messages ( type INTEGER NOT NULL, entry BLOB NOT NULL)
+
+# SQLite (46)
+Landroid/database/sqlite/SQLiteAccessPermException;
+Landroid/database/sqlite/SQLiteCantOpenDatabaseException;
+Landroid/database/sqlite/SQLiteClosable;
+Landroid/database/sqlite/SQLiteConstraintException;
+Landroid/database/sqlite/SQLiteCursor;
+Landroid/database/sqlite/SQLiteCursorDriver;
+Landroid/database/sqlite/SQLiteDatabase$CursorFactory;
+Landroid/database/sqlite/SQLiteDatabase;
+Landroid/database/sqlite/SQLiteDatabaseCorruptException;
+Landroid/database/sqlite/SQLiteDatabaseLockedException;
+Landroid/database/sqlite/SQLiteDiskIOException;
+Landroid/database/sqlite/SQLiteException;
+Landroid/database/sqlite/SQLiteFullException;
+Landroid/database/sqlite/SQLiteOpenHelper;
+Landroid/database/sqlite/SQLiteProgram;
+Landroid/database/sqlite/SQLiteQuery;
+Landroid/database/sqlite/SQLiteStatement;
+Landroid/database/sqlite/SQLiteTableLockedException;
+Landroid/database/sqlite/SQLiteTransactionListener;
+Lcom/parse/OfflineSQLiteOpenHelper;
+Lcom/parse/OfflineStore$SQLiteDatabaseCallable;
+Lcom/parse/OfflineStore$SQLiteDatabaseCallable<
+Lcom/parse/ParseSQLiteDatabase;
+Lcom/parse/ParseSQLiteOpenHelper$1;
+Lcom/parse/ParseSQLiteOpenHelper;
+Migration functionality with a provided SQLiteDriver requires overriding the migrate(SQLiteConnection) function.
+SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'room_master_table'
+SELECT 1 FROM sqlite_master WHERE type = 'table' AND name='room_master_table'
+SELECT count(*) FROM sqlite_master WHERE name != 'android_metadata'
+SELECT name FROM sqlite_master WHERE type = 'table'
+SQLITE_MASTER
+SQLiteDatabaseCallable
+SQLiteEventStore
+SQLiteManager was constructed with both null driver and open helper factory!
+SupportSQLite
+SupportSQLiteLock
+Unexpected SQLite exception during migrations
+sqlite_
+Cannot return a SupportSQLiteOpenHelper since no SupportSQLiteOpenHelper.Factory was configured with Room.
+Corruption reported by sqlite on database: 
+Landroid/database/sqlite/SQLiteDatabase;
+Landroid/database/sqlite/SQLiteException;
+Lcom/parse/ParseSQLiteDatabase;
+SELECT * FROM sqlite_master WHERE `name` = '
+SELECT name FROM sqlite_master WHERE type = 'trigger'
+SupportSQLite
