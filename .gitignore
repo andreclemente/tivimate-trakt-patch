@@ -9,6 +9,11 @@ research/jadx/*
 !research/jadx/.gitkeep
 research/apktool/*
 !research/apktool/.gitkeep
+research/jadx-single/*
+!research/jadx-single/.gitkeep
+
+# Downloaded local tooling
+tools/bin/
 
 # Private app/device data
 research/database-dumps/*

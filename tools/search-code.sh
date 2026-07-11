@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-QUERY="${1:-}"
-if [[ -z "${QUERY}" ]]; then
-  echo "Usage: $0 <regex>" >&2
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+TERM=${1:-}
+if [[ -z "$TERM" ]]; then
+  echo "usage: $0 <regex>" >&2
   exit 2
 fi
-if command -v rg >/dev/null 2>&1; then
-  rg -n --hidden --glob '!*.apk' --glob '!*.dex' --glob '!*.so' "${QUERY}" research/jadx research/apktool research/strings docs || true
-else
-  grep -RInE "${QUERY}" research/jadx research/apktool research/strings docs || true
-fi
+rg -n -i --glob '!*.png' --glob '!*.webp' --glob '!*.jpg' --glob '!*.so' "$TERM" \
+  "$ROOT/research/apktool" "$ROOT/research/jadx" "$ROOT/research/jadx-single" "$ROOT/research/strings" 2>/dev/null || true

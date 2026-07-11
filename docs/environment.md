@@ -1,58 +1,62 @@
 # Environment validation
 
-Generated from live diagnostics on 2026-07-10.
+Updated after root package install.
 
 ## Host
-
-```text
 Linux a06c68bf712d 6.12.33-production+truenas #1 SMP PREEMPT_DYNAMIC Wed Dec 17 21:17:21 UTC 2025 x86_64 GNU/Linux
-Debian GNU/Linux 13 (trixie), VERSION_ID=13, DEBIAN_VERSION_FULL=13.4
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+VERSION_CODENAME=trixie
+DEBIAN_VERSION_FULL=13.4
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+
+## Toolchain
+- `java`: `/usr/bin/java`
+- `javac`: `/usr/bin/javac`
+- `adb`: `/usr/bin/adb`
+- `aapt`: `/usr/bin/aapt`
+- `aapt2`: `/usr/bin/aapt2`
+- `apksigner`: `/usr/bin/apksigner`
+- `zipalign`: `/usr/bin/zipalign`
+- `apktool`: `/usr/bin/apktool`
+- `smali`: `/usr/bin/smali`
+- `baksmali`: `/usr/bin/baksmali`
+- `sqlite3`: `/usr/bin/sqlite3`
+- `rg`: `/usr/bin/rg`
+- `jadx`: `/opt/data/tivimate-trakt-project/tools/bin/jadx/bin/jadx (downloaded local v1.5.6; full decompile killed by OOM)`
+
+## Versions
+```text
+openjdk version "21.0.11" 2026-04-21
+OpenJDK Runtime Environment (build 21.0.11+10-1-deb13u2-Debian)
+OpenJDK 64-Bit Server VM (build 21.0.11+10-1-deb13u2-Debian, mixed mode, sharing)
+javac 21.0.11
+Android Debug Bridge version 1.0.41
+Version 34.0.5-debian
+Installed as /usr/lib/android-sdk/platform-tools/adb
+Android Asset Packaging Tool, v0.2-debian
+0.9
+Zip alignment utility
+Copyright (C) 2009 The Android Open Source Project
+
+2.7.0-dirty
+3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit)
+ripgrep 14.1.1
 ```
 
-## Tool availability
+## ADB devices
+```text
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+List of devices attached
 
-| Tool | Status | Evidence |
-|---|---:|---|
-| Java runtime (`java`) | Missing | `java: command not found` |
-| JDK (`javac`) | Missing | `javac: command not found` |
-| Android SDK env | Missing | no `ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `JAVA_HOME` in environment |
-| ADB | Missing | `adb: command not found` |
-| aapt/aapt2 | Missing | `aapt: command not found`, `aapt2: command not found` |
-| apkanalyzer | Missing | not on `PATH` |
-| apksigner | Missing | `apksigner: command not found` |
-| zipalign | Missing | `zipalign: command not found` |
-| JADX | Missing | `jadx: command not found` |
-| Apktool | Missing | `apktool: command not found` |
-| smali/baksmali | Missing | not on `PATH` |
-| Frida CLI/tools | Missing | `frida: command not found` |
-| Python | Present | `Python 3.13.5` |
-| Git | Present | `git version 2.47.3` |
-| unzip | Present | on PATH |
-| strings | Present | `/usr/bin/strings` |
-| sqlite3 CLI | Missing | `sqlite3: command not found` |
+```
 
-## Android device/emulator
-
-No device status could be checked because `adb` is not installed in this container.
-
-Unknown until ADB is available and a test Android TV device/emulator is connected:
-
-- Android TV CPU architecture
-- Android version
-- Root status
-- Magisk availability
-- LSPosed availability
-- USB/network ADB connectivity
-
-## APK discovery
-
-Searches under `/opt/data` found no `*.apk`, `*.apks`, or `*.xapk` files.
-
-## Phase 0 conclusion
-
-Confirmed:
-- Repository can be created locally.
-- Python and Git are available.
-
-Blocked:
-- APK inventory, signature inspection, manifest decoding, decompilation, and device/runtime inspection cannot proceed until Android reverse-engineering tools and a TiviMate APK/split APK set are supplied.
+## Notes
+- Apktool decompilation succeeded into `research/apktool/Tivi8KPro/`.
+- JADX 1.5.6 was installed under `tools/bin/jadx/`, but full Java decompilation was killed by the container OOM killer at ~64%; use narrower JADX runs or smali/resource analysis until more RAM is available.
