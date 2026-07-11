@@ -40,6 +40,7 @@ Identify, with concrete evidence, where TiviMate stores playback progress and wa
 - `docs/patch-strategy.md` — reproducible APK patch delivery plan.
 - `docs/patch-framework-survey.md` — community patch framework/Morphe-ReVanced survey.
 - `morphe/` — scaffold for a Morphe/ReVanced-family patch bundle.
+- `community-patches/` — buildable ReVanced-template patch bundle scaffold.
 - `docs/trakt-login-settings.md` — Trakt login/settings screen design.
 - `docs/trakt-api.md` — Trakt API contract.
 - `docs/sync-queue.md` — durable queue/idempotency design.

@@ -44,7 +44,9 @@ dist/
 out/
 .tmp/
 .cache/
+.gradle/
 .hermes/
+local.properties
 __pycache__/
 *.pyc
 

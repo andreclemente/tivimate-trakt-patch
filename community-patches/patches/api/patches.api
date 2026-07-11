@@ -1,0 +1,8 @@
+public final class com/tivimate/traktpatch/patches/TraktRuntimeSyncPatchKt {
+	public static final fun getTraktRuntimeSyncPatch ()Lapp/revanced/patcher/patch/BytecodePatch;
+}
+
+public final class com/tivimate/traktpatch/patches/TraktSettingsPatchKt {
+	public static final fun getTraktSettingsPatch ()Lapp/revanced/patcher/patch/BytecodePatch;
+}
+
