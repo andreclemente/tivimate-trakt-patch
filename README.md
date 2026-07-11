@@ -41,6 +41,8 @@ Identify, with concrete evidence, where TiviMate stores playback progress and wa
 - `docs/patch-framework-survey.md` — Morphe patch framework decision and risks.
 - `docs/android-device-support.md` — Android TV + phone/tablet patch constraints.
 - `docs/testing-now.md` — what can be tested now and exact Morphe commands.
+- `docs/phone-morphe-test.md` — simple phone test flow through Morphe Manager.
+- `patches-bundle.json` + `dist/patches-0.1.0.mpp` — Morphe Manager source entrypoint/artifact.
 - `morphe/` — Morphe patch bundle scaffold. Morphe is the target framework.
 - `docs/trakt-login-settings.md` — Trakt login/settings screen design.
 - `docs/trakt-api.md` — Trakt API contract.

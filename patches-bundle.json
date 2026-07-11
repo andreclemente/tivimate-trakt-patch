@@ -1,0 +1,7 @@
+{
+  "created_at": "2026-07-11T00:00:00",
+  "description": "TiviMate Trakt Morphe patch bundle. Current release is a scaffold/no-op: it lets Morphe Manager add/select the TiviMate Trakt patches, but does not add Trakt login/sync until runtime hooks are implemented.",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.0.mpp",
+  "signature_download_url": "",
+  "version": "0.1.0"
+}

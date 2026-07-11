@@ -19,6 +19,22 @@ TiviMate Trakt runtime sync
 
 Both are placeholders until runtime/static evidence identifies stable insertion points.
 
+## Simple phone/Morphe Manager path
+
+After the repository is pushed, open this link on the phone:
+
+```text
+https://morphe.software/add-source?github=andreclemente/tivimate-trakt-patch&name=TiviMate%20Trakt
+```
+
+Then in Morphe Manager:
+
+```text
+Add source → choose TiviMate APK → select TiviMate Trakt patches → patch → install
+```
+
+Details: `docs/phone-morphe-test.md`.
+
 ## Build the Morphe bundle
 
 Requirements:
