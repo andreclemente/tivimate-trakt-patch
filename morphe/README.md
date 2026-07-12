@@ -24,7 +24,10 @@ Scaffold only. The patch stubs compile structurally but do not modify TiviMate u
 
 - `TiviMate Trakt settings/login`
 - `TiviMate Trakt runtime sync`
+- `TiviMate mobile/tablet form factor` — optional; pending a phone launch capture that identifies the protected native/decrypted device-class gate
 - optional debug/runtime discovery patch
+
+The mobile/tablet patch is deliberately separate from Trakt. The target app already declares both Leanback and touchscreen as optional, while its launch bootstrap is protected/native; a manifest-only change would be speculative. See [`../docs/mobile-form-factor-patch.md`](../docs/mobile-form-factor-patch.md).
 
 ## Device support
 
