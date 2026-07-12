@@ -28,13 +28,29 @@ These reports prove that the protected 8K APK cannot currently survive generic r
 
 The only still-unobserved datum is the first failure from the **untouched original app on the phone**. It is useful for choosing the mobile form-factor bypass, but it is not a blocker for continuing static/protected-bootstrap work now. When a PC/ADB connection is available, `tools/capture-mobile-launch.sh` can capture it in one launch attempt; redact playlist URLs, provider credentials and tokens before sharing it.
 
+## Routing decision
+
+The protected 8K sample is **not** a viable first target for a mobile patch:
+
+- its native bootstrap contains signature/certificate validation strings and protected resource loading;
+- rebuilt samples already fail before any mobile-specific behavior can be validated;
+- changing those integrity checks is outside this project's mobile compatibility scope.
+
+The supported route is therefore a raw, official TiviMate APK version that can survive a clean Morphe patch/re-sign cycle. The local Morphe Manager compatibility work has two bounded responsibilities:
+
+1. preserve a no-op APK byte-for-byte (so a smoke test does not destructively rewrite a protected input);
+2. remove invalid ZIP alignment extra fields only from a temporary working copy when a real official-APK patch must be applied.
+
+This fixes the pre-patch `ExtraField$AlignmentSegment` blocker without presenting an 8K rebuild as a supported output.
+
 ## Implementation path after evidence
 
-1. Fingerprint the actual form-factor decision in the protected/decrypted runtime, using the captured stack and a narrow runtime trace if needed.
-2. Add an optional `TiviMate mobile/tablet form factor` Morphe patch for only the proven APK versions.
-3. Bypass only the launch/device-class rejection. Do **not** alter premium/licensing, billing, provider access, or account logic.
-4. Preserve TV behavior: on Android TV the patch must be a no-op.
-5. Validate phone launch, touch navigation, back behavior, portrait/landscape handling, and TV D-pad navigation separately.
+1. Run the no-op/signer smoke test on the exact raw official target APK.
+2. Fingerprint the actual form-factor decision from the original phone launch failure, using the captured stack and a narrow runtime trace if needed.
+3. Add an optional `TiviMate mobile/tablet form factor` Morphe patch for only the proven official APK versions.
+4. Bypass only the launch/device-class rejection. Do **not** alter premium/licensing, billing, provider access, app-integrity mechanisms, or account logic.
+5. Preserve TV behavior: on Android TV the patch must be a no-op.
+6. Validate phone launch, touch navigation, back behavior, portrait/landscape handling, and TV D-pad navigation separately.
 
 ## Acceptance criteria
 
