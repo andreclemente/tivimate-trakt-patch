@@ -1,14 +1,14 @@
 package com.tivimate.traktpatch.patches
 
-import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.rawResourcePatch
 import com.tivimate.traktpatch.patches.Constants.COMPATIBILITY_TIVIMATE
 
 private const val EXTENSION_CLASS = "Lcom/tivimate/traktpatch/extension/TraktPatchExtension;"
 
 @Suppress("unused")
-val traktSettingsPatch = bytecodePatch(
+val traktSettingsPatch = rawResourcePatch(
     name = "TiviMate Trakt settings/login",
-    description = "Scaffold for Trakt device-code login and sync settings inside TiviMate."
+    description = "No-op launch smoke test scaffold for Trakt device-code login and sync settings inside TiviMate."
 ) {
     compatibleWith(COMPATIBILITY_TIVIMATE)
 

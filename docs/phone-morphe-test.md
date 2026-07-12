@@ -33,9 +33,9 @@ https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/patche
 
 1. Open Morphe.
 2. Add/enable the `TiviMate Trakt` source.
-3. Pick the official TiviMate APK from `https://tivimate.com/apk`.
-   - Current inspected official build: `5.3.3` / versionCode `1000005332`.
-   - If Morphe fails with `ExtraField$AlignmentSegment` / `totalSize < MINIMUM_SIZE`, use the normalized APK generated from the official file instead of the raw download.
+3. Pick the 8K-modified TiviMate APK currently used for smoke testing.
+   - Current active smoke-test build: `5.1.6` / versionCode `5161`.
+   - The official `https://tivimate.com/apk` build (`5.3.3`) currently fails inside Morphe Manager/apkzlib with `ExtraField$AlignmentSegment` / `totalSize < MINIMUM_SIZE` before our patch code runs.
 4. Select:
    - `TiviMate Trakt settings/login`
    - `TiviMate Trakt runtime sync`
@@ -44,7 +44,7 @@ https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/patche
 
 ## Expected result right now
 
-This is currently a Morphe source/pipeline smoke test only.
+This is currently a Morphe source/pipeline/launch smoke test only. The selectable patches are intentionally no-op raw-resource patches so Morphe does not rewrite protected TiviMate dex code before we have a launch-clean baseline.
 
 Expected:
 
@@ -63,7 +63,7 @@ Those require real TiviMate hook implementation after runtime evidence is collec
 
 ## If Morphe warns about incompatible version
 
-Use bundle `0.1.3` or newer. `0.1.3` makes the official `tivimate.com/apk` build (`5.3.3`, versionCode `1000005332`) the stable target. Older `5.1.x` / 8K-modified builds are experimental until the official APK opens cleanly after a no-op Morphe rebuild/sign cycle.
+Use bundle `0.1.4` or newer. `0.1.4` returns `5.1.6` / versionCode `5161` to the stable target for the 8K-modified APK route. The official `5.3.3` target is left experimental until Morphe Manager can handle the official raw APK without pre-normalization.
 
 If Morphe is set to pre-release/dev for this source, disable that toggle for now. This repo currently serves the bundle from `main`, not `dev`.
 

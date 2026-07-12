@@ -1,12 +1,12 @@
 package com.tivimate.traktpatch.patches
 
-import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.patch.rawResourcePatch
 import com.tivimate.traktpatch.patches.Constants.COMPATIBILITY_TIVIMATE
 
 @Suppress("unused")
-val traktRuntimeSyncPatch = bytecodePatch(
+val traktRuntimeSyncPatch = rawResourcePatch(
     name = "TiviMate Trakt runtime sync",
-    description = "Scaffold for runtime playback/progress/watched hooks that enqueue Trakt sync events."
+    description = "No-op launch smoke test scaffold for runtime playback/progress/watched hooks that enqueue Trakt sync events."
 ) {
     compatibleWith(COMPATIBILITY_TIVIMATE)
 
