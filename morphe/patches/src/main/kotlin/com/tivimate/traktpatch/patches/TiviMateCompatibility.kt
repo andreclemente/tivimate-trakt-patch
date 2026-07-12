@@ -10,12 +10,6 @@ internal object Constants {
         packageName = "ar.tvplayer.tv",
         apkFileType = ApkFileType.APK_REQUIRED,
         appIconColor = 0x1E88E5,
-        targets = listOf(
-            AppTarget(
-                version = "8.0.0",
-                minSdk = 23,
-                isExperimental = true,
-            )
-        )
+        targets = emptyList<AppTarget>(),
     )
 }
