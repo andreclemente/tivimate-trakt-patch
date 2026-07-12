@@ -16,18 +16,17 @@ The target is not a GrapheneOS workaround. The unmodified official app also fail
 
 Therefore a manifest-only patch is not a credible fix: the phone rejection can be in native bootstrap code or decrypted code that is unavailable to static JADX/Apktool analysis. The static `UiModeManager.getCurrentModeType() == 4` helper found in the APK is from Media3 utility code and has no static call site in the visible DEX, so it is not a safe gate target.
 
-## Required evidence gate
+## Existing runtime evidence — do not request it again
 
-Capture the first unmodified-app launch failure from the phone before changing bytecode or native behavior:
+The user already supplied several Pixel 9a / GrapheneOS Android 17 crash reports and a Morphe log. They establish three separate facts:
 
-```sh
-chmod +x tools/capture-mobile-launch.sh
-./tools/capture-mobile-launch.sh <adb-serial>
-```
+- Rebuilt/re-signed 8K 5.1.6 reaches `MainActivity` then fails to inflate protected `res/2pus8l29.xml` with `Corrupt XML binary file`.
+- A separate rebuilt 5.1.5 route fails earlier at `androidx.startup.InitializationProvider` with `NoClassDefFoundError`.
+- The official 5.3.3 APK can fail inside Morphe/apkzlib before patch execution (`ExtraField$AlignmentSegment`).
 
-It writes a timestamped file under `research/runtime-logs/`. Redact playlist URLs, provider credentials and tokens before sharing it.
+These reports prove that the protected 8K APK cannot currently survive generic rebuild/re-signing. They are **not evidence that a Trakt hook caused the crash** and must not be requested again.
 
-The decisive lines are the first `FATAL EXCEPTION`, `UnsatisfiedLinkError`, `SecurityException`, `ActivityTaskManager`, protected-bootstrap, or app-specific rejection line immediately after launch.
+The only still-unobserved datum is the first failure from the **untouched original app on the phone**. It is useful for choosing the mobile form-factor bypass, but it is not a blocker for continuing static/protected-bootstrap work now. When a PC/ADB connection is available, `tools/capture-mobile-launch.sh` can capture it in one launch attempt; redact playlist URLs, provider credentials and tokens before sharing it.
 
 ## Implementation path after evidence
 
