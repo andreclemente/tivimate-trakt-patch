@@ -33,7 +33,9 @@ https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/patche
 
 1. Open Morphe.
 2. Add/enable the `TiviMate Trakt` source.
-3. Pick your clean TiviMate APK.
+3. Pick the official TiviMate APK from `https://tivimate.com/apk`.
+   - Current inspected official build: `5.3.3` / versionCode `1000005332`.
+   - If Morphe fails with `ExtraField$AlignmentSegment` / `totalSize < MINIMUM_SIZE`, use the normalized APK generated from the official file instead of the raw download.
 4. Select:
    - `TiviMate Trakt settings/login`
    - `TiviMate Trakt runtime sync`
@@ -61,7 +63,7 @@ Those require real TiviMate hook implementation after runtime evidence is collec
 
 ## If Morphe warns about incompatible version
 
-Use bundle `0.1.2` or newer. `0.1.0` listed only `8.0.0` as an experimental target, which caused false compatibility warnings for other TiviMate APK versions. `0.1.1` relaxed too far and could disappear from Morphe's app/patch view because it had no explicit app targets. `0.1.2` restores visible targets, with inspected local APK `5.1.6` as stable.
+Use bundle `0.1.3` or newer. `0.1.3` makes the official `tivimate.com/apk` build (`5.3.3`, versionCode `1000005332`) the stable target. Older `5.1.x` / 8K-modified builds are experimental until the official APK opens cleanly after a no-op Morphe rebuild/sign cycle.
 
 If Morphe is set to pre-release/dev for this source, disable that toggle for now. This repo currently serves the bundle from `main`, not `dev`.
 

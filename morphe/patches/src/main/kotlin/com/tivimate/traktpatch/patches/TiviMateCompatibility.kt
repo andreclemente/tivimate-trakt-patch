@@ -11,10 +11,14 @@ internal object Constants {
         apkFileType = ApkFileType.APK_REQUIRED,
         appIconColor = 0x1E88E5,
         targets = listOf(
-            // Local inspected APK: versionName 5.1.6, versionCode 5161.
-            // Keep these as visible/non-experimental targets so Morphe Manager shows
-            // the app/patches normally. Real hook support is still pending evidence.
-            AppTarget(version = "5.1.6", minSdk = 21),
+            // Official APK from https://tivimate.com/apk inspected on 2026-07-12:
+            // versionName 5.3.3, versionCode 1000005332,
+            // sha256 beaebb25bf818450bf496d4cefb16885b190f156815dea280c31eaae0909ee6c.
+            // This is the only stable smoke-test target. Older 5.1.x / 8K-modified
+            // builds are intentionally left experimental until the official build opens
+            // cleanly after a no-op Morphe rebuild/sign cycle.
+            AppTarget(version = "5.3.3", minSdk = 23),
+            AppTarget(version = "5.1.6", minSdk = 21, isExperimental = true),
             AppTarget(version = "5.1.5", minSdk = 21, isExperimental = true),
             AppTarget(version = "5.1.0", minSdk = 21, isExperimental = true),
             AppTarget(version = "5.0.4", minSdk = 21, isExperimental = true),
