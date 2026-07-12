@@ -61,7 +61,7 @@ Those require real TiviMate hook implementation after runtime evidence is collec
 
 ## If Morphe warns about incompatible version
 
-Use bundle `0.1.1` or newer. `0.1.0` listed only `8.0.0` as an experimental target, which caused false compatibility warnings for other TiviMate APK versions.
+Use bundle `0.1.2` or newer. `0.1.0` listed only `8.0.0` as an experimental target, which caused false compatibility warnings for other TiviMate APK versions. `0.1.1` relaxed too far and could disappear from Morphe's app/patch view because it had no explicit app targets. `0.1.2` restores visible targets, with inspected local APK `5.1.6` as stable.
 
 If Morphe is set to pre-release/dev for this source, disable that toggle for now. This repo currently serves the bundle from `main`, not `dev`.
 

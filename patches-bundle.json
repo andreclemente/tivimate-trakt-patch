@@ -1,7 +1,7 @@
 {
   "created_at": "2026-07-11T00:00:00",
-  "description": "TiviMate Trakt Morphe patch bundle. v0.1.1 is a scaffold/no-op phone pipeline test with relaxed TiviMate version metadata; it does not add Trakt login/sync until runtime hooks are implemented.",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.1.mpp",
+  "description": "TiviMate Trakt Morphe patch bundle. v0.1.2 restores visible TiviMate compatibility metadata (5.1.6 stable target) for phone smoke testing; it is still a no-op scaffold until runtime hooks are implemented.",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.2.mpp",
   "signature_download_url": "",
-  "version": "0.1.1"
+  "version": "0.1.2"
 }
