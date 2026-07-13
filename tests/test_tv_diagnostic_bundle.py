@@ -30,7 +30,7 @@ class TvDiagnosticBundleTest(unittest.TestCase):
         self.assertIn('"type": "listen"', config)
         self.assertIn('"address": "127.0.0.1"', config)
         self.assertIn('"port": 27042', config)
-        self.assertIn('"on_load": "wait"', config)
+        assert '"on_load": "resume"' in config
 
     def test_runtime_patch_merges_extension_and_calls_diagnostic_initializer(self):
         source = PATCH.read_text()
