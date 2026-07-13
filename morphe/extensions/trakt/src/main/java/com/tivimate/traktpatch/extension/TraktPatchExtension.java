@@ -5,6 +5,8 @@ import android.app.AlertDialog;
 import android.app.Application;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -36,6 +38,8 @@ public final class TraktPatchExtension {
     private static final String SUMMARY = "Connect Trakt and sync watched progress";
     private static volatile boolean initialized;
     private static volatile View fallbackRow;
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static volatile Activity polledActivity;
 
     private TraktPatchExtension() {}
 
@@ -61,10 +65,7 @@ public final class TraktPatchExtension {
                 View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
                 if (decor == null) return;
 
-                // Settings → Other is a fragment transaction inside the already
-                // resumed MainActivity, so an onResume-only check misses it.
-                // Recheck after every decor layout; addPreference is idempotent
-                // because installIntoFragment first looks up KEY.
+                scheduleOtherScreenPolling(activity);
                 decor.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
                     @Override public void onLayoutChange(View view, int left, int top, int right, int bottom,
                                                          int oldLeft, int oldTop, int oldRight, int oldBottom) {
@@ -74,6 +75,18 @@ public final class TraktPatchExtension {
                 decor.postDelayed(new Runnable() {
                     @Override public void run() { installOtherPreference(activity); }
                 }, 250L);
+            }
+        });
+    }
+
+    private static void scheduleOtherScreenPolling(final Activity activity) {
+        if (polledActivity == activity) return;
+        polledActivity = activity;
+        MAIN.post(new Runnable() {
+            @Override public void run() {
+                if (polledActivity != activity || activity.isFinishing()) return;
+                installOtherPreference(activity);
+                MAIN.postDelayed(this, 300L);
             }
         });
     }
