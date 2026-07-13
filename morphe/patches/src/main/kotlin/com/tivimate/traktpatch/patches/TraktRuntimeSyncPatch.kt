@@ -54,6 +54,11 @@ val tvDiagnosticGadgetPatch = bytecodePatch(
     dependsOn(tvDiagnosticNativeLibrariesPatch)
     extendWith("trakt.mpe")
 
+    // Force Morphe to merge the extension DEX before the launch hook is emitted.
+    execute {
+        classDefBy(DIAGNOSTIC_EXTENSION_CLASS)
+    }
+
     finalize {
         activityOnCreateExtensionHook(TIVIMATE_LAUNCH_ACTIVITY)
             .invoke(DIAGNOSTIC_EXTENSION_CLASS)
