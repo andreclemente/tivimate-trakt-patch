@@ -4,6 +4,7 @@ import app.morphe.patcher.patch.ResourcePatchContext
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.patch.rawResourcePatch
 import app.morphe.patches.all.misc.extension.activityOnCreateExtensionHook
+import app.morphe.patches.all.misc.extension.sharedExtensionPatch
 import com.tivimate.traktpatch.patches.Constants.COMPATIBILITY_TIVIMATE
 
 private const val DIAGNOSTIC_EXTENSION_CLASS =
@@ -44,6 +45,11 @@ val tvDiagnosticNativeLibrariesPatch = rawResourcePatch(
  * It merges the diagnostic extension and invokes its initializer from TiviMate's
  * launch activity. The extension starts a Frida Gadget listener on loopback only.
  */
+private val tvDiagnosticExtensionPatch = sharedExtensionPatch(
+    "trakt",
+    activityOnCreateExtensionHook(TIVIMATE_LAUNCH_ACTIVITY)
+)
+
 @Suppress("unused")
 val tvDiagnosticGadgetPatch = bytecodePatch(
     name = "TiviMate TV runtime diagnostics (x86_64)",
@@ -51,18 +57,7 @@ val tvDiagnosticGadgetPatch = bytecodePatch(
     default = false
 ) {
     compatibleWith(COMPATIBILITY_TIVIMATE)
-    dependsOn(tvDiagnosticNativeLibrariesPatch)
-    extendWith("trakt.mpe")
-
-    // Force Morphe to merge the extension DEX before the launch hook is emitted.
-    execute {
-        classDefBy(DIAGNOSTIC_EXTENSION_CLASS)
-    }
-
-    finalize {
-        activityOnCreateExtensionHook(TIVIMATE_LAUNCH_ACTIVITY)
-            .invoke(DIAGNOSTIC_EXTENSION_CLASS)
-    }
+    dependsOn(tvDiagnosticNativeLibrariesPatch, tvDiagnosticExtensionPatch)
 }
 
 @Suppress("unused")

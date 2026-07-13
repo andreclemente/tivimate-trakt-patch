@@ -1,7 +1,7 @@
 {
   "created_at": "2026-07-11T00:00:00",
-  "description": "TiviMate Trakt Morphe diagnostic bundle v0.1.8. Temporary x86_64 Android TV local-only runtime diagnostics for the 8K TiviMate 5.1.6 smoke-test target; no Trakt sync is enabled.",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.8.mpp",
+  "description": "TiviMate Trakt Morphe diagnostic bundle v0.1.9. Temporary x86_64 Android TV local-only runtime diagnostics for the 8K TiviMate 5.1.6 smoke-test target; no Trakt sync is enabled.",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.9.mpp",
   "signature_download_url": "",
-  "version": "0.1.8"
+  "version": "0.1.9"
 }
