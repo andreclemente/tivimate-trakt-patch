@@ -62,6 +62,7 @@ public final class TraktPatchExtension {
             @Override public void onActivityDestroyed(Activity activity) {}
 
             @Override public void onActivityResumed(final Activity activity) {
+                Log.i(TAG, "activity resumed=" + activity.getClass().getName());
                 View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
                 if (decor == null) return;
 

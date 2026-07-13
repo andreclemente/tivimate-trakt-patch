@@ -12,17 +12,17 @@ private const val PROTECTED_APPLICATION = "Lar/tvplayer/tv/ProtectedTvPlayerAppl
  * Exact 5.1.6 bootstrap method, present in the unpacked base DEX. Unlike the
  * protected launcher, this method has a callable, stable implementation.
  */
-private object ProtectedApplicationAttachBaseContextFingerprint : Fingerprint(
+private object ProtectedApplicationOnCreateFingerprint : Fingerprint(
     definingClass = PROTECTED_APPLICATION,
-    name = "attachBaseContext",
-    returnType = "V",
-    parameters = listOf("Landroid/content/Context;")
+    name = "onCreate",
+    returnType = "V"
 )
 
 /**
  * Merges the extension and registers its lifecycle observer immediately after
- * Application.attachBaseContext. This bypasses Morphe's shared extension helper
- * and its unavailable target-specific utility fingerprint.
+ * Application.onCreate, after Android has initialized the Application runtime.
+ * This bypasses Morphe's shared extension helper and its unavailable
+ * target-specific utility fingerprint.
  */
 @Suppress("unused")
 val traktSettingsPatch = bytecodePatch(
@@ -34,10 +34,10 @@ val traktSettingsPatch = bytecodePatch(
 
     execute {
         classDefBy(EXTENSION_CLASS)
-        // Register while the concrete Application instance is available, before
-        // DexProtector loads protected UI classes.
-        ProtectedApplicationAttachBaseContextFingerprint.method.addInstruction(
-            2,
+        // Instruction 0 invokes Application.onCreate; initialize immediately
+        // after it, before DexProtector loads protected UI classes.
+        ProtectedApplicationOnCreateFingerprint.method.addInstruction(
+            1,
             "invoke-static { p0 }, $EXTENSION_CLASS->initialize(Landroid/content/Context;)V"
         )
     }
