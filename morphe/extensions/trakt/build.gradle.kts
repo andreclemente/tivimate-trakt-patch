@@ -2,6 +2,7 @@ import com.android.build.api.dsl.ApplicationExtension
 
 dependencies {
     compileOnly(libs.morphe.extensions.library)
+    compileOnly("androidx.preference:preference:1.2.1")
 }
 
 configure<ApplicationExtension> {

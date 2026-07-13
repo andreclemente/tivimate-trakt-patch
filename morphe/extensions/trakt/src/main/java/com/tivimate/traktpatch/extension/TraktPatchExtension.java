@@ -45,6 +45,8 @@ public final class TraktPatchExtension {
     private static volatile Activity polledActivity;
     private static volatile boolean windowPollingStarted;
     private static volatile boolean windowScanLogged;
+    private static volatile boolean adapterLogged;
+    private static volatile boolean nativePreferenceInstalled;
 
     private TraktPatchExtension() {}
 
@@ -163,11 +165,103 @@ public final class TraktPatchExtension {
     }
 
     private static void installOtherRow(Context context, View decor) {
-        if (containsVisibleText(decor, "Other") && containsVisibleText(decor, "VOD")) {
-            installFallbackRow(context, decor);
-        } else {
-            removeFallbackRow();
+        if (!containsVisibleText(decor, "Other") || !containsVisibleText(decor, "VOD")) return;
+        installNativePreference(context, decor);
+    }
+
+    /**
+     * TiviMate renders this pane using Leanback's PreferenceGroupAdapter.  Its
+     * adapter keeps the real PreferenceScreen as a field; adding the Preference
+     * there lets Leanback update its own list, focus, and click handling.
+     */
+    private static void installNativePreference(final Context context, View root) {
+        if (nativePreferenceInstalled) return;
+        Object adapter = findPreferenceAdapter(root);
+        if (adapter == null) return;
+        Object screen = findPreferenceScreen(adapter);
+        if (screen == null) return;
+        if (!adapterLogged) {
+            adapterLogged = true;
+            logPreferenceApi(adapter, screen);
+            return;
         }
+        try {
+            Class<?> preferenceClass = Class.forName("androidx.preference.Preference");
+            Object preference = Class.forName("com.tivimate.traktpatch.extension.NativeTraktPreference")
+                    .getConstructor(Context.class).newInstance(context);
+            setPreferenceField(preferenceClass, preference, "ˑﾞ", KEY);
+            setPreferenceField(preferenceClass, preference, "ـˆ", TITLE);
+            setPreferenceField(preferenceClass, preference, "ᴵʼ", SUMMARY);
+            Method add = screen.getClass().getSuperclass().getMethod("ᵢʿ", preferenceClass);
+            add.invoke(screen, preference);
+            nativePreferenceInstalled = true;
+            Log.i(TAG, "added native preference to Leanback PreferenceScreen");
+        } catch (ReflectiveOperationException error) {
+            Log.w(TAG, "native PreferenceScreen insertion failed", error);
+        }
+    }
+
+    private static void setPreferenceField(Class<?> preferenceClass, Object preference, String name, Object value)
+            throws ReflectiveOperationException {
+        Field field = preferenceClass.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(preference, value);
+    }
+
+    private static void logPreferenceApi(Object adapter, Object screen) {
+        StringBuilder log = new StringBuilder("Native preference API screen=")
+                .append(screen.getClass().getName());
+        for (Method method : screen.getClass().getDeclaredMethods()) {
+            log.append("\n screen ").append(method.getName()).append('(');
+            for (Class<?> parameter : method.getParameterTypes()) log.append(parameter.getName()).append(',');
+            log.append(") -> ").append(method.getReturnType().getName());
+        }
+        for (Field field : adapter.getClass().getDeclaredFields()) {
+            try {
+                field.setAccessible(true);
+                Object value = field.get(adapter);
+                if (value instanceof List) log.append("\n adapter-list ").append(field.getName())
+                        .append(" size=").append(((List<?>) value).size());
+            } catch (IllegalAccessException ignored) { }
+        }
+        try {
+            Class<?> preference = Class.forName("androidx.preference.Preference");
+            for (Method method : preference.getDeclaredMethods()) {
+                log.append("\n pref ").append(method.getName()).append('(');
+                for (Class<?> parameter : method.getParameterTypes()) log.append(parameter.getName()).append(',');
+                log.append(") -> ").append(method.getReturnType().getName());
+            }
+        } catch (ClassNotFoundException ignored) { }
+        Log.i(TAG, log.toString());
+    }
+
+    private static Object findPreferenceAdapter(View view) {
+        try {
+            Method adapterMethod = view.getClass().getMethod("getAdapter");
+            Object adapter = adapterMethod.invoke(view);
+            if (adapter != null && findPreferenceScreen(adapter) != null) return adapter;
+        } catch (ReflectiveOperationException ignored) { }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                Object adapter = findPreferenceAdapter(group.getChildAt(i));
+                if (adapter != null) return adapter;
+            }
+        }
+        return null;
+    }
+
+    private static Object findPreferenceScreen(Object adapter) {
+        for (Class<?> type = adapter.getClass(); type != null; type = type.getSuperclass()) {
+            for (Field field : type.getDeclaredFields()) {
+                if (!"androidx.preference.PreferenceScreen".equals(field.getType().getName())) continue;
+                try {
+                    field.setAccessible(true);
+                    return field.get(adapter);
+                } catch (IllegalAccessException ignored) { }
+            }
+        }
+        return null;
     }
 
     private static boolean containsVisibleText(View view, String text) {
@@ -193,73 +287,6 @@ public final class TraktPatchExtension {
             }
         }
         return null;
-    }
-
-    /**
-     * Leanback settings in this protected build do not surface a public
-     * PreferenceScreen. Add the row to the same settings pane only while its
-     * visible Other/VOD content proves the screen is active.
-     */
-    private static void installFallbackRow(final Context context, View decor) {
-        if (fallbackRow != null && fallbackRow.getParent() != null) return;
-        if (!(decor instanceof FrameLayout)) return;
-        TextView vod = findVisibleText(decor, "VOD");
-        if (vod == null) return;
-        int[] location = new int[2];
-        vod.getLocationOnScreen(location);
-        int panelWidth = Math.max(320, decor.getWidth() - location[0] - 48);
-        int rowHeight = Math.max(72, vod.getHeight() * 2);
-        Context safeContext = new ContextThemeWrapper(context, android.R.style.Theme_DeviceDefault);
-        TextView row = new TextView(safeContext);
-        row.setTag(KEY);
-        row.setId(View.generateViewId());
-        row.setText(TITLE + "\n" + SUMMARY);
-        row.setTextSize(18f);
-        row.setTextColor(0xffffffff);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(32, 0, 24, 0);
-        row.setBackgroundColor(0xff424242);
-        row.setFocusable(true);
-        row.setClickable(true);
-        row.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View view) { showStatus(context); }
-        });
-        // TiviMate nests the visible VOD label in several focusable Leanback
-        // wrappers. Route Down from each wrapper to the injected row.
-        View focusNode = vod;
-        View keyTarget = vod;
-        while (true) {
-            focusNode.setNextFocusDownId(row.getId());
-            if (focusNode.isFocusable()) keyTarget = focusNode;
-            if (!(focusNode.getParent() instanceof View) || focusNode == decor) break;
-            focusNode = (View) focusNode.getParent();
-        }
-        final View dpadTarget = keyTarget;
-        dpadTarget.setOnKeyListener(new View.OnKeyListener() {
-            @Override public boolean onKey(View view, int keyCode, android.view.KeyEvent event) {
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN
-                        && event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
-                    row.requestFocus();
-                    return true;
-                }
-                return false;
-            }
-        });
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(panelWidth, rowHeight,
-                Gravity.TOP | Gravity.END);
-        params.topMargin = location[1] + vod.getHeight();
-        params.rightMargin = 48;
-        ((FrameLayout) decor).addView(row, params);
-        fallbackRow = row;
-        Log.i(TAG, "added Other fallback row");
-    }
-
-    private static void removeFallbackRow() {
-        View row = fallbackRow;
-        if (row != null && row.getParent() instanceof ViewGroup) {
-            ((ViewGroup) row.getParent()).removeView(row);
-        }
-        fallbackRow = null;
     }
 
     private static void installIntoFragment(final Activity activity, Object fragment) {
