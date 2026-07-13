@@ -1,20 +1,23 @@
 package com.tivimate.traktpatch.extension;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Application;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -40,6 +43,8 @@ public final class TraktPatchExtension {
     private static volatile View fallbackRow;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile Activity polledActivity;
+    private static volatile boolean windowPollingStarted;
+    private static volatile boolean windowScanLogged;
 
     private TraktPatchExtension() {}
 
@@ -53,6 +58,7 @@ public final class TraktPatchExtension {
                         ? (Application) context.getApplicationContext() : null);
         if (application == null) return;
         initialized = true;
+        startWindowPolling();
         application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             @Override public void onActivityCreated(Activity activity, Bundle state) {}
             @Override public void onActivityStarted(Activity activity) {}
@@ -80,6 +86,54 @@ public final class TraktPatchExtension {
         });
     }
 
+    private static synchronized void startWindowPolling() {
+        if (windowPollingStarted) return;
+        windowPollingStarted = true;
+        MAIN.post(new Runnable() {
+            @Override public void run() {
+                scanApplicationWindows();
+                MAIN.postDelayed(this, 300L);
+            }
+        });
+    }
+
+    private static void scanApplicationWindows() {
+        try {
+            Class<?> globalClass = Class.forName("android.view.WindowManagerGlobal");
+            Object global = globalClass.getMethod("getInstance").invoke(null);
+            Field viewsField = globalClass.getDeclaredField("mViews");
+            viewsField.setAccessible(true);
+            Object views = viewsField.get(global);
+            if (!(views instanceof List)) return;
+            for (Object item : (List<?>) views) {
+                if (!(item instanceof View)) continue;
+                View decor = (View) item;
+                installOtherRow(decor.getContext(), decor);
+                Activity activity = findActivity(decor.getContext());
+                if (activity != null) {
+                    if (!windowScanLogged) {
+                        windowScanLogged = true;
+                        Log.i(TAG, "window poll activity=" + activity.getClass().getName());
+                    }
+                    installOtherPreference(activity);
+                }
+            }
+        } catch (Throwable error) {
+            if (!windowScanLogged) Log.w(TAG, "window poll unavailable", error);
+        }
+    }
+
+    private static Activity findActivity(Context context) {
+        Context current = context;
+        while (current instanceof ContextWrapper) {
+            if (current instanceof Activity) return (Activity) current;
+            Context next = ((ContextWrapper) current).getBaseContext();
+            if (next == current) break;
+            current = next;
+        }
+        return current instanceof Activity ? (Activity) current : null;
+    }
+
     private static void scheduleOtherScreenPolling(final Activity activity) {
         if (polledActivity == activity) return;
         polledActivity = activity;
@@ -95,11 +149,7 @@ public final class TraktPatchExtension {
     private static void installOtherPreference(Activity activity) {
         View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
         if (decor == null) return;
-        if (containsVisibleText(decor, "Other") && containsVisibleText(decor, "VOD")) {
-            installFallbackRow(activity, decor);
-        } else {
-            removeFallbackRow();
-        }
+        installOtherRow(activity, decor);
         try {
             Method managerMethod = activity.getClass().getMethod("getSupportFragmentManager");
             Object manager = managerMethod.invoke(activity);
@@ -109,6 +159,14 @@ public final class TraktPatchExtension {
             for (Object fragment : (List<?>) value) installIntoFragment(activity, fragment);
         } catch (ReflectiveOperationException ignored) {
             // Not TiviMate's AndroidX settings activity.
+        }
+    }
+
+    private static void installOtherRow(Context context, View decor) {
+        if (containsVisibleText(decor, "Other") && containsVisibleText(decor, "VOD")) {
+            installFallbackRow(context, decor);
+        } else {
+            removeFallbackRow();
         }
     }
 
@@ -142,7 +200,7 @@ public final class TraktPatchExtension {
      * PreferenceScreen. Add the row to the same settings pane only while its
      * visible Other/VOD content proves the screen is active.
      */
-    private static void installFallbackRow(final Activity activity, View decor) {
+    private static void installFallbackRow(final Context context, View decor) {
         if (fallbackRow != null && fallbackRow.getParent() != null) return;
         if (!(decor instanceof FrameLayout)) return;
         TextView vod = findVisibleText(decor, "VOD");
@@ -151,8 +209,10 @@ public final class TraktPatchExtension {
         vod.getLocationOnScreen(location);
         int panelWidth = Math.max(320, decor.getWidth() - location[0] - 48);
         int rowHeight = Math.max(72, vod.getHeight() * 2);
-        TextView row = new TextView(activity);
+        Context safeContext = new ContextThemeWrapper(context, android.R.style.Theme_DeviceDefault);
+        TextView row = new TextView(safeContext);
         row.setTag(KEY);
+        row.setId(View.generateViewId());
         row.setText(TITLE + "\n" + SUMMARY);
         row.setTextSize(18f);
         row.setTextColor(0xffffffff);
@@ -162,7 +222,28 @@ public final class TraktPatchExtension {
         row.setFocusable(true);
         row.setClickable(true);
         row.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View view) { showStatus(activity); }
+            @Override public void onClick(View view) { showStatus(context); }
+        });
+        // TiviMate nests the visible VOD label in several focusable Leanback
+        // wrappers. Route Down from each wrapper to the injected row.
+        View focusNode = vod;
+        View keyTarget = vod;
+        while (true) {
+            focusNode.setNextFocusDownId(row.getId());
+            if (focusNode.isFocusable()) keyTarget = focusNode;
+            if (!(focusNode.getParent() instanceof View) || focusNode == decor) break;
+            focusNode = (View) focusNode.getParent();
+        }
+        final View dpadTarget = keyTarget;
+        dpadTarget.setOnKeyListener(new View.OnKeyListener() {
+            @Override public boolean onKey(View view, int keyCode, android.view.KeyEvent event) {
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN
+                        && event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+                    row.requestFocus();
+                    return true;
+                }
+                return false;
+            }
         });
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(panelWidth, rowHeight,
                 Gravity.TOP | Gravity.END);
@@ -247,11 +328,7 @@ public final class TraktPatchExtension {
         return false;
     }
 
-    private static void showStatus(Activity activity) {
-        new AlertDialog.Builder(activity)
-                .setTitle("Trakt")
-                .setMessage("Not connected. Device-code OAuth is next; watched/progress sync remains disabled.")
-                .setPositiveButton("OK", null)
-                .show();
+    private static void showStatus(Context context) {
+        Toast.makeText(context, "Trakt: not connected", Toast.LENGTH_LONG).show();
     }
 }
