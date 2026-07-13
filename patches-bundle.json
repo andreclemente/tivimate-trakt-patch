@@ -1,7 +1,7 @@
 {
   "created_at": "2026-07-11T00:00:00",
-  "description": "TiviMate Trakt Morphe patch bundle. v0.1.4 returns the stable smoke-test target to the 8K-modified TiviMate 5.1.6 APK because the official 5.3.3 raw APK currently trips a Morphe Manager apkzlib alignment bug.",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.4.mpp",
+  "description": "TiviMate Trakt Morphe diagnostic bundle v0.1.5. Temporary x86_64 Android TV local-only runtime diagnostics for the 8K TiviMate 5.1.6 smoke-test target; no Trakt sync is enabled.",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.5.mpp",
   "signature_download_url": "",
-  "version": "0.1.4"
+  "version": "0.1.5"
 }

@@ -3,7 +3,7 @@ group = "com.tivimate.traktpatch"
 patches {
     about {
         name = "TiviMate Trakt Morphe Patches"
-        description = "Morphe patch bundle scaffold for adding Trakt runtime sync to a user-supplied TiviMate APK"
+        description = "Morphe patch bundle for TiviMate Trakt runtime sync research; v0.1.5 contains an opt-in x86_64 Android TV diagnostic patch only"
         source = "https://github.com/andreclemente/tivimate-trakt-patch"
         author = "André Clemente"
         contact = "https://github.com/andreclemente/tivimate-trakt-patch/issues"

@@ -10,4 +10,12 @@ configure<ApplicationExtension> {
     defaultConfig {
         minSdk = 23
     }
+
+    // The Gadget JSON config is deliberately named *.so so Frida resolves it
+    // next to libfrida-gadget.so. Legacy packaging extracts both files.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
