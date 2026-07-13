@@ -1,24 +1,44 @@
 package com.tivimate.traktpatch.patches
 
-import app.morphe.patcher.patch.rawResourcePatch
+import app.morphe.patcher.Fingerprint
+import app.morphe.patcher.extensions.InstructionExtensions.addInstruction
+import app.morphe.patcher.patch.bytecodePatch
 import com.tivimate.traktpatch.patches.Constants.COMPATIBILITY_TIVIMATE
 
 private const val EXTENSION_CLASS = "Lcom/tivimate/traktpatch/extension/TraktPatchExtension;"
+private const val PROTECTED_APPLICATION = "Lar/tvplayer/tv/ProtectedTvPlayerApplication;"
 
+/**
+ * Exact 5.1.6 bootstrap method, present in the unpacked base DEX. Unlike the
+ * protected launcher, this method has a callable, stable implementation.
+ */
+private object ProtectedApplicationAttachBaseContextFingerprint : Fingerprint(
+    definingClass = PROTECTED_APPLICATION,
+    name = "attachBaseContext",
+    returnType = "V",
+    parameters = listOf("Landroid/content/Context;")
+)
+
+/**
+ * Merges the extension and registers its lifecycle observer immediately after
+ * Application.attachBaseContext. This bypasses Morphe's shared extension helper
+ * and its unavailable target-specific utility fingerprint.
+ */
 @Suppress("unused")
-val traktSettingsPatch = rawResourcePatch(
+val traktSettingsPatch = bytecodePatch(
     name = "TiviMate Trakt settings/login",
-    description = "No-op launch smoke test scaffold for Trakt device-code login and sync settings inside TiviMate."
+    description = "Adds a D-pad focusable Trakt entry under Settings > Other; OAuth and sync remain disabled."
 ) {
     compatibleWith(COMPATIBILITY_TIVIMATE)
+    extendWith("extensions/trakt.mpe")
 
     execute {
-        // TODO after mapping settings UI:
-        // - inject/enable extension classes;
-        // - add Trakt settings row / launch TraktSettingsActivity;
-        // - support TV D-pad and phone/tablet touch;
-        // - wire device-code OAuth status UI.
-        @Suppress("UNUSED_VARIABLE")
-        val extensionClass = EXTENSION_CLASS
+        classDefBy(EXTENSION_CLASS)
+        // Register while the concrete Application instance is available, before
+        // DexProtector loads protected UI classes.
+        ProtectedApplicationAttachBaseContextFingerprint.method.addInstruction(
+            2,
+            "invoke-static { p0 }, $EXTENSION_CLASS->initialize(Landroid/content/Context;)V"
+        )
     }
 }
