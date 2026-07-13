@@ -27,7 +27,10 @@ private fun ResourcePatchContext.copyDiagnosticResource(resource: String, destin
 val tvDiagnosticNativeLibrariesPatch = rawResourcePatch(
     name = "TiviMate TV diagnostic native libraries (x86_64)",
     description = "Temporary Frida Gadget payload for local Android TV runtime discovery.",
-    default = false
+    // Resource-only dependencies are hidden by Morphe Manager. Enable this
+    // prerequisite by default so selecting the visible diagnostic hook cannot
+    // produce an APK without its required native payload.
+    default = true
 ) {
     compatibleWith(COMPATIBILITY_TIVIMATE)
     execute {
