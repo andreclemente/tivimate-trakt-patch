@@ -14,6 +14,8 @@ import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -202,23 +204,34 @@ public final class TraktDeviceAuth {
     private static final class AuthDialog {
         private final Dialog dialog;
         private final TextView text;
+        private final Button action;
 
         AuthDialog(Context context) {
             Context uiContext = new ContextThemeWrapper(context, android.R.style.Theme_DeviceDefault);
             dialog = new Dialog(uiContext);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
             dialog.setCanceledOnTouchOutside(true);
-            text = new TextView(uiContext);
+            LinearLayout content = new LinearLayout(uiContext);
+            content.setOrientation(LinearLayout.VERTICAL);
             int padding = (int) (28 * context.getResources().getDisplayMetrics().density);
-            text.setPadding(padding, padding, padding, padding);
+            content.setPadding(padding, padding, padding, padding);
+            text = new TextView(uiContext);
             text.setTextColor(Color.WHITE);
             text.setTextSize(20);
             text.setGravity(Gravity.CENTER);
             text.setMinWidth((int) (620 * context.getResources().getDisplayMetrics().density));
-            dialog.setContentView(text);
+            action = new Button(uiContext);
+            action.setVisibility(android.view.View.GONE);
+            action.setAllCaps(false);
+            content.addView(text);
+            content.addView(action, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            dialog.setContentView(content);
         }
 
         void show(String title, String message) {
+            action.setVisibility(android.view.View.GONE);
+            action.setOnClickListener(null);
             text.setText(title + "\n\n" + message + "\n\nPress Back to cancel");
             dialog.show();
             Window window = dialog.getWindow();
@@ -229,11 +242,12 @@ public final class TraktDeviceAuth {
         }
 
         void showDisconnect(final Runnable disconnect) {
-            text.setText("Trakt connected\n\nSelect Disconnect Trakt to remove this account from TiviMate.\n\nDisconnect Trakt");
-            text.setFocusable(true);
-            text.setClickable(true);
-            text.setOnClickListener(v -> disconnect.run());
+            text.setText("Trakt connected\n\nRemove this account from TiviMate?");
+            action.setText("Disconnect Trakt");
+            action.setVisibility(android.view.View.VISIBLE);
+            action.setOnClickListener(v -> disconnect.run());
             dialog.show();
+            action.requestFocus();
             Window window = dialog.getWindow();
             if (window != null) {
                 window.setBackgroundDrawable(new ColorDrawable(Color.rgb(32, 32, 32)));

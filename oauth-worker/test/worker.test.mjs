@@ -69,6 +69,34 @@ test('refresh endpoint only accepts a refresh token from the device', async () =
   });
 });
 
+test('authenticated history sync forwards the bearer token only as an upstream header', async () => {
+  let forwarded;
+  const response = await handle(
+    new Request('https://proxy.example/v1/sync/history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer user-access-token' },
+      body: JSON.stringify({ movies: [{ title: 'Example', year: 2026 }] }),
+    }),
+    env,
+    async (url, init) => {
+      forwarded = new Request(url, init);
+      return new Response('{}', { headers: { 'content-type': 'application/json' } });
+    },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(forwarded.url, 'https://api.trakt.tv/sync/history');
+  assert.equal(forwarded.headers.get('authorization'), 'Bearer user-access-token');
+  assert.equal(forwarded.headers.get('trakt-api-key'), 'public-client-id');
+  assert.deepEqual(await forwarded.json(), { movies: [{ title: 'Example', year: 2026 }] });
+});
+
+test('sync routes reject a missing bearer token', async () => {
+  const response = await worker.fetch(new Request('https://proxy.example/v1/sync/history', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ movies: [] }),
+  }), env);
+  assert.equal(response.status, 401);
+});
+
 test('rejects unsupported routes and malformed device requests', async () => {
   const unsupported = await worker.fetch(new Request('https://proxy.example/nope'), env);
   assert.equal(unsupported.status, 404);

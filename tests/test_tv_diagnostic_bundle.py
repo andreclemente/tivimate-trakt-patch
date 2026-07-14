@@ -25,6 +25,8 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         auth = (ROOT / 'morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktDeviceAuth.java').read_text()
         self.assertIn('void clear()', auth)
         self.assertIn('Disconnect Trakt', auth)
+        self.assertIn('Button action', auth)
+        self.assertIn('action.requestFocus()', auth)
         # Every newly created Other PreferenceScreen must get a row. A process-wide
         # boolean makes the row disappear after leaving and re-entering Other.
         self.assertNotIn('nativePreferenceInstalled', source)
