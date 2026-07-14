@@ -53,8 +53,14 @@ public final class TraktDeviceAuth {
     public static void open(final Context context) {
         android.util.Log.i("TiviMateTrakt", "device authorization entry");
         if (isConnected(context)) {
-            AuthDialog connected = new AuthDialog(context);
-            connected.show("Trakt connected", "Your Trakt account is connected. Watched-progress sync is being added next.");
+            final AuthDialog connected = new AuthDialog(context);
+            connected.showDisconnect(new Runnable() {
+                @Override public void run() {
+                    new TokenStore(context).clear();
+                    connected.dismiss();
+                    Toast.makeText(context, "Trakt disconnected", Toast.LENGTH_LONG).show();
+                }
+            });
             return;
         }
         final AuthDialog dialog = new AuthDialog(context);
@@ -81,9 +87,12 @@ public final class TraktDeviceAuth {
                 } catch (final Exception error) {
                     MAIN.post(new Runnable() {
                         @Override public void run() {
-                            if (dialog.isShowing()) dialog.dismiss();
-                            Toast.makeText(context, "Trakt connection unavailable: " + message(error),
-                                    Toast.LENGTH_LONG).show();
+                            // Preserve the dialog on transient DNS/Worker failures so the
+                            // user can read the cause rather than seeing it flash and vanish.
+                            if (dialog.isShowing()) {
+                                dialog.setMessage("Unable to contact Trakt: " + message(error)
+                                        + "\n\nPlease check your connection and select Trakt again.");
+                            }
                         }
                     });
                 }
@@ -219,6 +228,19 @@ public final class TraktDeviceAuth {
             }
         }
 
+        void showDisconnect(final Runnable disconnect) {
+            text.setText("Trakt connected\n\nSelect Disconnect Trakt to remove this account from TiviMate.\n\nDisconnect Trakt");
+            text.setFocusable(true);
+            text.setClickable(true);
+            text.setOnClickListener(v -> disconnect.run());
+            dialog.show();
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setBackgroundDrawable(new ColorDrawable(Color.rgb(32, 32, 32)));
+                window.setLayout(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT);
+            }
+        }
+
         void setMessage(String message) { text.setText("Connect Trakt\n\n" + message + "\n\nPress Back to cancel"); }
         boolean isShowing() { return dialog.isShowing(); }
         void dismiss() { dialog.dismiss(); }
@@ -257,6 +279,17 @@ public final class TraktDeviceAuth {
             stored.put("created_at", token.optLong("created_at", 0));
             if (!preferences.edit().putString(TOKENS, encrypt(stored.toString())).commit()) {
                 throw new IllegalStateException("token storage failed");
+            }
+        }
+
+        void clear() {
+            preferences.edit().remove(TOKENS).commit();
+            try {
+                KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+                store.load(null);
+                if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS);
+            } catch (Exception ignored) {
+                // The encrypted payload is already gone; alias cleanup is best effort.
             }
         }
 

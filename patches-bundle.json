@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T12:00:00",
-  "description": "TiviMate Trakt v0.1.26: restores the proven v0.1.20 native click dispatch and initial disconnected state.",
-  "display_name": "TiviMate Trakt v0.1.26",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.26.mpp",
+  "created_at": "2026-07-14T12:35:00",
+  "description": "TiviMate Trakt v0.1.27: adds a native Disconnect Trakt action that clears encrypted local authorization state.",
+  "display_name": "TiviMate Trakt v0.1.27",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.27.mpp",
   "signature_download_url": "",
-  "version": "0.1.26"
+  "version": "0.1.27"
 }
