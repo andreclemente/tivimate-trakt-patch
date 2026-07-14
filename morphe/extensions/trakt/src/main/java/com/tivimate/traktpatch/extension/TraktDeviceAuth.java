@@ -56,9 +56,10 @@ public final class TraktDeviceAuth {
         android.util.Log.i("TiviMateTrakt", "device authorization entry");
         if (isConnected(context)) {
             final AuthDialog connected = new AuthDialog(context);
-            connected.showDisconnect(new Runnable() {
+            connected.showConnected(context, new Runnable() {
                 @Override public void run() {
                     new TokenStore(context).clear();
+                    new SyncSettings(context).clear();
                     connected.dismiss();
                     Toast.makeText(context, "Trakt disconnected", Toast.LENGTH_LONG).show();
                 }
@@ -204,6 +205,7 @@ public final class TraktDeviceAuth {
     private static final class AuthDialog {
         private final Dialog dialog;
         private final TextView text;
+        private final LinearLayout actions;
         private final Button action;
 
         AuthDialog(Context context) {
@@ -221,16 +223,17 @@ public final class TraktDeviceAuth {
             text.setGravity(Gravity.CENTER);
             text.setMinWidth((int) (620 * context.getResources().getDisplayMetrics().density));
             action = new Button(uiContext);
-            action.setVisibility(android.view.View.GONE);
             action.setAllCaps(false);
+            actions = new LinearLayout(uiContext);
+            actions.setOrientation(LinearLayout.VERTICAL);
             content.addView(text);
-            content.addView(action, new LinearLayout.LayoutParams(
+            content.addView(actions, new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             dialog.setContentView(content);
         }
 
         void show(String title, String message) {
-            action.setVisibility(android.view.View.GONE);
+            actions.removeAllViews();
             action.setOnClickListener(null);
             text.setText(title + "\n\n" + message + "\n\nPress Back to cancel");
             dialog.show();
@@ -241,11 +244,18 @@ public final class TraktDeviceAuth {
             }
         }
 
-        void showDisconnect(final Runnable disconnect) {
-            text.setText("Trakt connected\n\nRemove this account from TiviMate?");
+        void showConnected(final Context context, final Runnable disconnect) {
+            final SyncSettings settings = new SyncSettings(context);
+            actions.removeAllViews();
+            text.setText("Trakt connected\n\nSync scope: " + settings.label()
+                    + "\n\nPlayback sync is awaiting the next verified runtime hook.");
+            addScope(context, settings, "movies", "Movies only");
+            addScope(context, settings, "shows", "TV shows only");
+            addScope(context, settings, "both", "Movies and TV shows");
             action.setText("Disconnect Trakt");
-            action.setVisibility(android.view.View.VISIBLE);
             action.setOnClickListener(v -> disconnect.run());
+            actions.addView(action, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             dialog.show();
             action.requestFocus();
             Window window = dialog.getWindow();
@@ -255,9 +265,45 @@ public final class TraktDeviceAuth {
             }
         }
 
+        private void addScope(Context context, final SyncSettings settings, final String scope,
+                              String title) {
+            Button button = new Button(context);
+            button.setAllCaps(false);
+            button.setText(title);
+            button.setOnClickListener(v -> {
+                settings.set(scope);
+                text.setText("Trakt connected\n\nSync scope: " + settings.label()
+                        + "\n\nPlayback sync is awaiting the next verified runtime hook.");
+                Toast.makeText(context, "Trakt sync scope: " + settings.label(), Toast.LENGTH_SHORT).show();
+            });
+            actions.addView(button, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+
         void setMessage(String message) { text.setText("Connect Trakt\n\n" + message + "\n\nPress Back to cancel"); }
         boolean isShowing() { return dialog.isShowing(); }
         void dismiss() { dialog.dismiss(); }
+    }
+
+    /** Sync choice is local and will gate runtime events once their hook is proven. */
+    private static final class SyncSettings {
+        private static final String PREFS = "tivimate_trakt_sync";
+        private static final String SCOPE = "scope";
+        private final SharedPreferences preferences;
+
+        SyncSettings(Context context) {
+            preferences = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        }
+
+        void set(String scope) { preferences.edit().putString(SCOPE, scope).apply(); }
+        void clear() { preferences.edit().clear().apply(); }
+
+        String label() {
+            String scope = preferences.getString(SCOPE, "both");
+            if ("movies".equals(scope)) return "Movies only";
+            if ("shows".equals(scope)) return "TV shows only";
+            return "Movies and TV shows";
+        }
     }
 
     /** App-private encrypted persistence; plaintext tokens never enter preferences. */

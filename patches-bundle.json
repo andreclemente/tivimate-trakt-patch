@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T12:50:00",
-  "description": "TiviMate Trakt v0.1.28: makes Disconnect Trakt a native focused button.",
-  "display_name": "TiviMate Trakt v0.1.28",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.28.mpp",
+  "created_at": "2026-07-14T13:10:00",
+  "description": "TiviMate Trakt v0.1.29: adds selectable Movies, TV shows, or Both sync scope controls.",
+  "display_name": "TiviMate Trakt v0.1.29",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.29.mpp",
   "signature_download_url": "",
-  "version": "0.1.28"
+  "version": "0.1.29"
 }
