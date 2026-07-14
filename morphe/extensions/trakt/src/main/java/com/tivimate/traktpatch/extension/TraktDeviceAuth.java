@@ -156,8 +156,11 @@ public final class TraktDeviceAuth {
                 ? connection.getInputStream() : connection.getErrorStream();
         String text = read(stream);
         if (status < 200 || status >= 300) {
-            JSONObject error = new JSONObject(text.length() == 0 ? "{}" : text);
-            throw new DeviceAuthorizationException(status, error.optString("error", "HTTP " + status));
+            String code = DEVICE_TOKEN_URL.equals(endpoint) && status == 400 && text.length() == 0
+                    ? "authorization_pending"
+                    : new JSONObject(text.length() == 0 ? "{}" : text)
+                            .optString("error", "HTTP " + status);
+            throw new DeviceAuthorizationException(status, code);
         }
         return new JSONObject(text);
     }

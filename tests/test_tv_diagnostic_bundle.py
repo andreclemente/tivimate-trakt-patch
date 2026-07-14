@@ -65,6 +65,10 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('"authorization_pending".equals(code)', source)
         self.assertIn('"slow_down".equals(code)', source)
         self.assertIn('DeviceAuthorizationException', source)
+        # The Worker can return an empty 400 while Trakt authorization is still
+        # pending. Keep polling rather than treating JSON parsing as fatal.
+        self.assertIn('DEVICE_TOKEN_URL.equals(endpoint) && status == 400 && text.length() == 0', source)
+        self.assertIn('"authorization_pending"', source)
         self.assertNotIn('new AlertDialog.Builder', source)
         self.assertIn('setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0")', source)
         self.assertNotIn('CLIENT_SECRET', source)
