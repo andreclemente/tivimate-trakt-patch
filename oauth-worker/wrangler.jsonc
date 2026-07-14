@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tivimate-trakt-oauth",
+  "main": "worker.js",
+  "compatibility_date": "2026-07-14",
+  "workers_dev": true,
+  "secrets": {
+    "required": [
+      "TRAKT_CLIENT_ID",
+      "TRAKT_CLIENT_SECRET"
+    ]
+  }
+}
