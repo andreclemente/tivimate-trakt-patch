@@ -1,0 +1,5 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="progress-test-movie" tvg-name="Progress Test Movie" group-title="Progress Capture" tvg-type="movie" type="VOD",Progress Test Movie
+https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4
+#EXTINF:-1 tvg-id="progress-test-episode-s01e01" tvg-name="Progress Test Series S01 E01" group-title="Progress Capture Series" tvg-type="series" type="series" series-id="9001" episode-id="900101",Progress Test Series S01 E01
+https://download.blender.org/durian/trailer/sintel_trailer-480p.mp4
