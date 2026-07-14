@@ -206,6 +206,7 @@ public final class TraktPatchExtension {
                     ? "Trakt (Connected)" : TITLE);
             setPreferenceField(preferenceClass, preference, "ᴵʼ", connected
                     ? "Account connected — watched-progress sync coming next" : SUMMARY);
+            bindNativePreferenceClick(preferenceClass, preference, context);
             Method add = screen.getClass().getSuperclass().getMethod("ᵢʿ", preferenceClass);
             add.invoke(screen, preference);
             INSTALLED_SCREENS.add(screen);
@@ -213,6 +214,22 @@ public final class TraktPatchExtension {
         } catch (ReflectiveOperationException error) {
             Log.w(TAG, "native PreferenceScreen insertion failed", error);
         }
+    }
+
+    private static void bindNativePreferenceClick(Class<?> preferenceClass, Object preference,
+                                                  final Context context)
+            throws ReflectiveOperationException {
+        Class<?> listenerClass = Class.forName("ˊʾ.ﹳˑ");
+        Method setListener = preferenceClass.getDeclaredMethod("ˋⁱ", listenerClass);
+        setListener.setAccessible(true);
+        Object listener = Proxy.newProxyInstance(listenerClass.getClassLoader(),
+                new Class<?>[] { listenerClass }, new InvocationHandler() {
+                    @Override public Object invoke(Object proxy, Method method, Object[] args) {
+                        TraktDeviceAuth.open(context);
+                        return Boolean.TRUE;
+                    }
+                });
+        setListener.invoke(preference, listener);
     }
 
     private static Object findPreferenceByTitle(Object screen, String wantedTitle) {

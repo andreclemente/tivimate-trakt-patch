@@ -17,6 +17,10 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('setOnPreferenceClickListener', source)
         self.assertIn('"Other"', source)
         self.assertIn('"Trakt"', source)
+        # The protected runtime does not dispatch our subclass onClick override;
+        # bind its observed Preference click-listener API for D-pad Enter.
+        self.assertIn('bindNativePreferenceClick(preferenceClass, preference, context)', source)
+        self.assertIn('getDeclaredMethod("ˋⁱ"', source)
         # Every newly created Other PreferenceScreen must get a row. A process-wide
         # boolean makes the row disappear after leaving and re-entering Other.
         self.assertNotIn('nativePreferenceInstalled', source)

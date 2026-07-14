@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T08:25:00",
-  "description": "TiviMate Trakt Morphe bundle v0.1.20. Keeps Device Authorization open while the Worker returns an empty pending-token response; restores the Trakt row when Settings > Other is reopened.",
-  "display_name": "TiviMate Trakt v0.1.20",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.20.mpp",
+  "created_at": "2026-07-14T08:45:00",
+  "description": "TiviMate Trakt Morphe bundle v0.1.21. Binds the protected runtime's native preference click listener so D-pad Enter opens Trakt Device Authorization; restores the row after Other is reopened.",
+  "display_name": "TiviMate Trakt v0.1.21",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.21.mpp",
   "signature_download_url": "",
-  "version": "0.1.20"
+  "version": "0.1.21"
 }
