@@ -193,8 +193,10 @@ public final class TraktPatchExtension {
             if (vodPreference == null) return;
             copyPreferencePresentation(vodPreference, preference);
             setPreferenceField(preferenceClass, preference, "ˑﾞ", KEY);
-            setPreferenceField(preferenceClass, preference, "ـˆ", TITLE);
-            setPreferenceField(preferenceClass, preference, "ᴵʼ", SUMMARY);
+            setPreferenceField(preferenceClass, preference, "ـˆ", TraktDeviceAuth.isConnected(context)
+                    ? "Trakt (Connected)" : TITLE);
+            setPreferenceField(preferenceClass, preference, "ᴵʼ", TraktDeviceAuth.isConnected(context)
+                    ? "Account connected — watched-progress sync coming next" : SUMMARY);
             Method add = screen.getClass().getSuperclass().getMethod("ᵢʿ", preferenceClass);
             add.invoke(screen, preference);
             nativePreferenceInstalled = true;

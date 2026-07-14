@@ -46,7 +46,16 @@ public final class TraktDeviceAuth {
 
     private TraktDeviceAuth() { }
 
+    public static boolean isConnected(Context context) {
+        return new TokenStore(context).hasValidToken();
+    }
+
     public static void open(final Context context) {
+        if (isConnected(context)) {
+            AuthDialog connected = new AuthDialog(context);
+            connected.show("Trakt connected", "Your Trakt account is connected. Watched-progress sync is being added next.");
+            return;
+        }
         final AuthDialog dialog = new AuthDialog(context);
         dialog.show("Connect Trakt", "Requesting a Trakt activation code…");
         NETWORK.execute(new Runnable() {
@@ -101,15 +110,34 @@ public final class TraktDeviceAuth {
                             Toast.makeText(context, "Trakt connected", Toast.LENGTH_LONG).show();
                         }
                     });
-                } catch (Exception ignored) {
-                    MAIN.postDelayed(new Runnable() {
+                } catch (final Exception error) {
+                    if (isRetryableDeviceAuthorizationError(error)) {
+                        final long nextDelay = error instanceof DeviceAuthorizationException
+                                && "slow_down".equals(((DeviceAuthorizationException) error).code)
+                                ? delayMillis + 5000L : delayMillis;
+                        MAIN.postDelayed(new Runnable() {
+                            @Override public void run() {
+                                poll(context, dialog, deviceCode, nextDelay, expiresAt);
+                            }
+                        }, nextDelay);
+                        return;
+                    }
+                    MAIN.post(new Runnable() {
                         @Override public void run() {
-                            poll(context, dialog, deviceCode, delayMillis, expiresAt);
+                            if (dialog.isShowing()) dialog.dismiss();
+                            Toast.makeText(context, "Trakt connection failed: " + message(error),
+                                    Toast.LENGTH_LONG).show();
                         }
-                    }, delayMillis);
+                    });
                 }
             }
         });
+    }
+
+    private static boolean isRetryableDeviceAuthorizationError(Exception error) {
+        if (!(error instanceof DeviceAuthorizationException)) return false;
+        String code = ((DeviceAuthorizationException) error).code;
+        return "authorization_pending".equals(code) || "slow_down".equals(code);
     }
 
     private static JSONObject post(String endpoint, JSONObject payload) throws Exception {
@@ -127,7 +155,10 @@ public final class TraktDeviceAuth {
         InputStream stream = status >= 200 && status < 300
                 ? connection.getInputStream() : connection.getErrorStream();
         String text = read(stream);
-        if (status < 200 || status >= 300) throw new IllegalStateException("HTTP " + status);
+        if (status < 200 || status >= 300) {
+            JSONObject error = new JSONObject(text.length() == 0 ? "{}" : text);
+            throw new DeviceAuthorizationException(status, error.optString("error", "HTTP " + status));
+        }
         return new JSONObject(text);
     }
 
@@ -143,6 +174,15 @@ public final class TraktDeviceAuth {
     private static String message(Exception error) {
         String value = error.getMessage();
         return value == null || value.length() == 0 ? "network error" : value;
+    }
+
+    private static final class DeviceAuthorizationException extends Exception {
+        final String code;
+
+        DeviceAuthorizationException(int status, String code) {
+            super("HTTP " + status + ": " + code);
+            this.code = code;
+        }
     }
 
     /** Custom content avoids TiviMate's protected theme breaking AlertDialog inflation. */
@@ -191,6 +231,20 @@ public final class TraktDeviceAuth {
             preferences = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         }
 
+        boolean hasValidToken() {
+            String encrypted = preferences.getString(TOKENS, null);
+            if (encrypted == null || encrypted.length() == 0) return false;
+            try {
+                JSONObject stored = new JSONObject(decrypt(encrypted));
+                return stored.getString("access_token").length() > 0
+                        && stored.getString("refresh_token").length() > 0;
+            } catch (Exception ignored) {
+                // A partial/corrupt value cannot represent an authorized account.
+                preferences.edit().remove(TOKENS).apply();
+                return false;
+            }
+        }
+
         void save(JSONObject token) throws Exception {
             JSONObject stored = new JSONObject();
             stored.put("access_token", token.getString("access_token"));
@@ -209,6 +263,16 @@ public final class TraktDeviceAuth {
             byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
             return Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP) + "."
                     + Base64.encodeToString(encrypted, Base64.NO_WRAP);
+        }
+
+        private static String decrypt(String ciphertext) throws Exception {
+            String[] parts = ciphertext.split("\\.", -1);
+            if (parts.length != 2) throw new IllegalArgumentException("invalid encrypted token");
+            byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
+            byte[] encrypted = Base64.decode(parts[1], Base64.NO_WRAP);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(128, iv));
+            return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
         }
 
         private static SecretKey getOrCreateKey() throws Exception {
