@@ -9,6 +9,7 @@ PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/T
 RUNTIME_PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/TraktRuntimeSyncPatch.kt"
 DEVICE_AUTH = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktDeviceAuth.java"
 PROGRESS_BRIDGE = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktProgressBridge.java"
+METADATA_RESOLVER = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/XtreamMetadataResolver.java"
 PATCH_BUNDLE_DESCRIPTOR = ROOT / "patches-bundle.json"
 
 
@@ -123,6 +124,19 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('ThreadLocal<Boolean>', bridge)
         self.assertIn('database.inTransaction()', bridge)
         self.assertNotIn('HttpURLConnection', bridge)
+
+    def test_xtream_identity_resolution_runs_off_the_database_hook_and_redacts_credentials(self):
+        bridge = PROGRESS_BRIDGE.read_text()
+        self.assertTrue(METADATA_RESOLVER.exists(), "Xtream metadata resolver is missing")
+        resolver = METADATA_RESOLVER.read_text()
+        self.assertIn('XtreamMetadataResolver.resolveAsync', bridge)
+        self.assertNotIn('HttpURLConnection', bridge)
+        self.assertIn('Executors.newSingleThreadExecutor', resolver)
+        self.assertIn('XtreamUrlBuilder.vodInfoUrl', resolver)
+        self.assertIn('HttpURLConnection', resolver)
+        self.assertIn('resolved movie metadata', resolver)
+        self.assertNotIn('Log.i(TAG, playlistUrl', resolver)
+        self.assertNotIn('Log.i(TAG, infoUrl', resolver)
 
     def test_manager_descriptor_uses_local_datetime_without_timezone_suffix(self):
         descriptor = json.loads(PATCH_BUNDLE_DESCRIPTOR.read_text())

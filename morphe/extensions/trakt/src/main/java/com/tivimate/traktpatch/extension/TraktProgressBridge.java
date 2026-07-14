@@ -80,8 +80,37 @@ public final class TraktProgressBridge {
 
         Log.i(TAG, "changed " + table + " rows=" + previous.size() + "->" + current.size()
                 + " removed=" + removed.size() + " added=" + added.size());
+        if ("movies".equals(table)) resolveMovieMetadata(database, added);
         logChanges(table, "removed", removed);
         logChanges(table, "added", added);
+    }
+
+    private static void resolveMovieMetadata(SQLiteDatabase database, List<String> added) {
+        for (String row : added) {
+            String playlistId = rowValue(row, "playlist_id");
+            String xcId = rowValue(row, "xc_id");
+            if (playlistId == null || xcId == null || "null".equals(xcId)) continue;
+            Cursor cursor = database.rawQuery(
+                    "SELECT url FROM playlists WHERE id = ? LIMIT 1", new String[]{playlistId});
+            try {
+                if (cursor.moveToFirst()) {
+                    String playlistUrl = cursor.getString(0);
+                    XtreamMetadataResolver.resolveAsync(playlistUrl, xcId);
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+    }
+
+    private static String rowValue(String row, String wanted) {
+        for (String field : row.split("\\|")) {
+            int equals = field.indexOf('=');
+            if (equals > 0 && wanted.equals(field.substring(0, equals))) {
+                return field.substring(equals + 1);
+            }
+        }
+        return null;
     }
 
     private static void logSchema(SQLiteDatabase database, String table) {
