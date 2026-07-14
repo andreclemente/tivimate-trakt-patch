@@ -27,7 +27,7 @@ private object ProtectedApplicationOnCreateFingerprint : Fingerprint(
 @Suppress("unused")
 val traktSettingsPatch = bytecodePatch(
     name = "TiviMate Trakt settings/login",
-    description = "Adds a D-pad focusable Trakt entry under Settings > Other; OAuth and sync remain disabled."
+    description = "Adds a D-pad focusable Trakt entry under Settings > Other with Trakt Device Authorization; watched/progress sync remains disabled."
 ) {
     compatibleWith(COMPATIBILITY_TIVIMATE)
     extendWith("extensions/trakt.mpe")

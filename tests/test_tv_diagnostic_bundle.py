@@ -30,6 +30,11 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertNotIn('activityOnCreateExtensionHook', source)
         self.assertIn('Settings > Other', source)
 
+    def test_settings_patch_metadata_does_not_claim_device_authorization_is_disabled(self):
+        source = PATCH.read_text()
+        self.assertIn('Trakt Device Authorization', source)
+        self.assertNotIn('OAuth and sync remain disabled', source)
+
     def test_native_row_clones_vod_preference_style(self):
         source = EXTENSION.read_text()
         # A generic Preference renders with a different row layout and does not
