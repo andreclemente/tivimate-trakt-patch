@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T09:05:00",
-  "description": "TiviMate Trakt Morphe bundle v0.1.23. Handles the actual protected Leanback Preference click entry point so D-pad Enter opens Trakt Device Authorization.",
-  "display_name": "TiviMate Trakt v0.1.23",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.23.mpp",
+  "created_at": "2026-07-14T09:15:00",
+  "description": "Diagnostic v0.1.24: records whether the native Trakt click reaches Device Authorization on the protected runtime.",
+  "display_name": "TiviMate Trakt diagnostic v0.1.24",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.24.mpp",
   "signature_download_url": "",
-  "version": "0.1.23"
+  "version": "0.1.24"
 }

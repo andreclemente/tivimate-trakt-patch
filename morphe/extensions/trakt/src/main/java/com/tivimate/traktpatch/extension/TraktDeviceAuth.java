@@ -51,6 +51,7 @@ public final class TraktDeviceAuth {
     }
 
     public static void open(final Context context) {
+        android.util.Log.i("TiviMateTrakt", "device authorization entry");
         if (isConnected(context)) {
             AuthDialog connected = new AuthDialog(context);
             connected.show("Trakt connected", "Your Trakt account is connected. Watched-progress sync is being added next.");
