@@ -1,7 +1,6 @@
 package com.tivimate.traktpatch.extension;
 
 import android.content.Context;
-import android.view.View;
 
 import androidx.preference.Preference;
 
@@ -14,19 +13,8 @@ public final class NativeTraktPreference extends Preference {
         this.context = context;
     }
 
-    // TiviMate's protected AndroidX Preference runtime renames Preference.onClick
-    // to this same DEX method name. Virtual dispatch therefore reaches this row.
+    // This is the exact v0.1.20 click path that opened the native dialog.
     public void ˏᴵ() {
         TraktDeviceAuth.open(context);
-    }
-
-    // Directly bind the native adapter-owned row. The compile-time AndroidX
-    // library does not expose the protected runtime's renamed super method.
-    public void ʿˏ(View view) {
-        view.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View clicked) {
-                TraktDeviceAuth.open(context);
-            }
-        });
     }
 }

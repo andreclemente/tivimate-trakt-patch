@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T09:25:00",
-  "description": "TiviMate Trakt v0.1.25: binds Device Authorization directly to the native Leanback row after its protected Preference view is bound.",
-  "display_name": "TiviMate Trakt v0.1.25",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.25.mpp",
+  "created_at": "2026-07-14T12:00:00",
+  "description": "TiviMate Trakt v0.1.26: restores the proven v0.1.20 native click dispatch and initial disconnected state.",
+  "display_name": "TiviMate Trakt v0.1.26",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.26.mpp",
   "signature_download_url": "",
-  "version": "0.1.25"
+  "version": "0.1.26"
 }
