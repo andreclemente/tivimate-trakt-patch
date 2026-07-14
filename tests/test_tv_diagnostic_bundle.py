@@ -46,8 +46,8 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
 
     def test_device_auth_uses_worker_and_never_embeds_client_secret(self):
         source = DEVICE_AUTH.read_text()
-        self.assertIn('https://tivimate-trakt-oauth.andreclemente.dev/v1/device/code', source)
-        self.assertIn('/v1/device/token', source)
+        self.assertIn('https://tivimate-trakt-oauth.queqfoi.workers.dev/v1/device/code', source)
+        self.assertIn('https://tivimate-trakt-oauth.queqfoi.workers.dev/v1/device/token', source)
         self.assertIn('KeyGenParameterSpec', source)
         self.assertIn('new Dialog(uiContext)', source)
         self.assertIn('if (isConnected(context))', source)
@@ -65,6 +65,13 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0")', source)
         self.assertNotIn('CLIENT_SECRET', source)
         self.assertNotIn('client_secret', source)
+
+    def test_native_row_uses_one_connection_snapshot_for_title_and_summary(self):
+        source = EXTENSION.read_text()
+        self.assertIn('final boolean connected = TraktDeviceAuth.isConnected(context);', source)
+        self.assertIn('preference, "ـˆ", connected', source)
+        self.assertIn('preference, "ᴵʼ", connected', source)
+        self.assertEqual(source.count('TraktDeviceAuth.isConnected(context)'), 1)
 
     def test_runtime_sync_has_no_diagnostic_or_sync_dependency(self):
         source = RUNTIME_PATCH.read_text()

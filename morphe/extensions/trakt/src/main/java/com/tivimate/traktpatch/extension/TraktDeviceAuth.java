@@ -38,9 +38,9 @@ import javax.crypto.spec.GCMParameterSpec;
 /** Device Authorization client. The Trakt secret is only held by the Worker. */
 public final class TraktDeviceAuth {
     private static final String DEVICE_CODE_URL =
-            "https://tivimate-trakt-oauth.andreclemente.dev/v1/device/code";
+            "https://tivimate-trakt-oauth.queqfoi.workers.dev/v1/device/code";
     private static final String DEVICE_TOKEN_URL =
-            "https://tivimate-trakt-oauth.andreclemente.dev/v1/device/token";
+            "https://tivimate-trakt-oauth.queqfoi.workers.dev/v1/device/token";
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ExecutorService NETWORK = Executors.newSingleThreadExecutor();
 

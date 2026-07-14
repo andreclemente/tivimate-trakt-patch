@@ -192,10 +192,14 @@ public final class TraktPatchExtension {
             Object vodPreference = findPreferenceByTitle(screen, "VOD");
             if (vodPreference == null) return;
             copyPreferencePresentation(vodPreference, preference);
+            // Decrypt once: a single saved token state must drive both labels.
+            // This prevents a damaged/rotated keystore entry from yielding a
+            // contradictory connected title with a disconnected summary.
+            final boolean connected = TraktDeviceAuth.isConnected(context);
             setPreferenceField(preferenceClass, preference, "ˑﾞ", KEY);
-            setPreferenceField(preferenceClass, preference, "ـˆ", TraktDeviceAuth.isConnected(context)
+            setPreferenceField(preferenceClass, preference, "ـˆ", connected
                     ? "Trakt (Connected)" : TITLE);
-            setPreferenceField(preferenceClass, preference, "ᴵʼ", TraktDeviceAuth.isConnected(context)
+            setPreferenceField(preferenceClass, preference, "ᴵʼ", connected
                     ? "Account connected — watched-progress sync coming next" : SUMMARY);
             Method add = screen.getClass().getSuperclass().getMethod("ᵢʿ", preferenceClass);
             add.invoke(screen, preference);
