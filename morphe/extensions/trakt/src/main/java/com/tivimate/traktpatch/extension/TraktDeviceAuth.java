@@ -267,7 +267,7 @@ public final class TraktDeviceAuth {
 
         private void addScope(Context context, final SyncSettings settings, final String scope,
                               String title) {
-            Button button = new Button(context);
+            Button button = new Button(action.getContext());
             button.setAllCaps(false);
             button.setText(title);
             button.setOnClickListener(v -> {

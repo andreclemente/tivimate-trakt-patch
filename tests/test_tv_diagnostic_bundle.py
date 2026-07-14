@@ -30,6 +30,7 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('Movies only', auth)
         self.assertIn('TV shows only', auth)
         self.assertIn('Movies and TV shows', auth)
+        self.assertIn('new Button(action.getContext())', auth)
         self.assertIn('new SyncSettings(context).clear()', auth)
         # Every newly created Other PreferenceScreen must get a row. A process-wide
         # boolean makes the row disappear after leaving and re-entering Other.
