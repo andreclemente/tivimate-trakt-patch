@@ -119,6 +119,7 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('duration_ms', bridge)
         self.assertIn('"series"', bridge)
         self.assertIn('"channels"', bridge)
+        self.assertIn('"playlists"', bridge)
         self.assertIn('ThreadLocal<Boolean>', bridge)
         self.assertIn('database.inTransaction()', bridge)
         self.assertNotIn('HttpURLConnection', bridge)

@@ -28,7 +28,8 @@ public final class TraktProgressBridge {
     };
     private static final String[] SCHEMA_ONLY_TABLES = {
             "series",
-            "channels"
+            "channels",
+            "playlists"
     };
     private static final int MAX_LOGGED_CHANGES = 20;
     private static final ThreadLocal<Boolean> ACTIVE = new ThreadLocal<>();
