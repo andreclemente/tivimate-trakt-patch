@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T06:50:00",
-  "description": "TiviMate Trakt Morphe bundle v0.1.17. Adds a native Leanback Trakt preference under Settings > Other with visible D-pad focus and Trakt Device Authorization onboarding. Connected-state labels use one encrypted-token snapshot.",
-  "display_name": "TiviMate Trakt v0.1.17",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.17.mpp",
+  "created_at": "2026-07-14T08:00:00",
+  "description": "TiviMate Trakt Morphe bundle v0.1.18. Uses the production Workers.dev OAuth endpoint for Trakt Device Authorization, with native Leanback focus and locally encrypted tokens.",
+  "display_name": "TiviMate Trakt v0.1.18",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.18.mpp",
   "signature_download_url": "",
-  "version": "0.1.17"
+  "version": "0.1.18"
 }

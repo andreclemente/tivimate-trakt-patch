@@ -46,8 +46,8 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
 
     def test_device_auth_uses_worker_and_never_embeds_client_secret(self):
         source = DEVICE_AUTH.read_text()
-        self.assertIn('https://tivimate-trakt-oauth.queqfoi.workers.dev/v1/device/code', source)
-        self.assertIn('https://tivimate-trakt-oauth.queqfoi.workers.dev/v1/device/token', source)
+        self.assertIn('https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/code', source)
+        self.assertIn('https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/token', source)
         self.assertIn('KeyGenParameterSpec', source)
         self.assertIn('new Dialog(uiContext)', source)
         self.assertIn('if (isConnected(context))', source)
