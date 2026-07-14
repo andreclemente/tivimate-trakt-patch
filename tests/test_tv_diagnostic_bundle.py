@@ -17,6 +17,10 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('setOnPreferenceClickListener', source)
         self.assertIn('"Other"', source)
         self.assertIn('"Trakt"', source)
+        # Every newly created Other PreferenceScreen must get a row. A process-wide
+        # boolean makes the row disappear after leaving and re-entering Other.
+        self.assertNotIn('nativePreferenceInstalled', source)
+        self.assertIn('INSTALLED_SCREENS', source)
 
     def test_settings_patch_uses_exact_callable_application_bootstrap(self):
         source = PATCH.read_text()

@@ -21,7 +21,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * Production settings bridge injected into TiviMate's launch activity.
@@ -46,7 +49,10 @@ public final class TraktPatchExtension {
     private static volatile boolean windowPollingStarted;
     private static volatile boolean windowScanLogged;
     private static volatile boolean adapterLogged;
-    private static volatile boolean nativePreferenceInstalled;
+    // A new Other pane owns a new PreferenceScreen. Retain only the screen
+    // instances already modified, so leaving and re-entering gets a fresh row.
+    private static final Set<Object> INSTALLED_SCREENS =
+            Collections.newSetFromMap(new WeakHashMap<Object, Boolean>());
 
     private TraktPatchExtension() {}
 
@@ -175,11 +181,10 @@ public final class TraktPatchExtension {
      * there lets Leanback update its own list, focus, and click handling.
      */
     private static void installNativePreference(final Context context, View root) {
-        if (nativePreferenceInstalled) return;
         Object adapter = findPreferenceAdapter(root);
         if (adapter == null) return;
         Object screen = findPreferenceScreen(adapter);
-        if (screen == null) return;
+        if (screen == null || INSTALLED_SCREENS.contains(screen)) return;
         if (!adapterLogged) {
             adapterLogged = true;
             logPreferenceApi(adapter, screen);
@@ -203,7 +208,7 @@ public final class TraktPatchExtension {
                     ? "Account connected — watched-progress sync coming next" : SUMMARY);
             Method add = screen.getClass().getSuperclass().getMethod("ᵢʿ", preferenceClass);
             add.invoke(screen, preference);
-            nativePreferenceInstalled = true;
+            INSTALLED_SCREENS.add(screen);
             Log.i(TAG, "added native preference to Leanback PreferenceScreen");
         } catch (ReflectiveOperationException error) {
             Log.w(TAG, "native PreferenceScreen insertion failed", error);
