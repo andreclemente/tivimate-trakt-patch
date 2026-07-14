@@ -7,6 +7,7 @@ EXTENSION = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatc
 PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/TraktSettingsPatch.kt"
 RUNTIME_PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/TraktRuntimeSyncPatch.kt"
 DEVICE_AUTH = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktDeviceAuth.java"
+PROGRESS_BRIDGE = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktProgressBridge.java"
 
 
 class TvTraktSettingsBundleTest(unittest.TestCase):
@@ -96,11 +97,23 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('preference, "ᴵʼ", connected', source)
         self.assertEqual(source.count('TraktDeviceAuth.isConnected(context)'), 1)
 
-    def test_runtime_sync_has_no_diagnostic_or_sync_dependency(self):
+    def test_runtime_sync_hooks_committed_tvplayer_transactions_for_schema_capture(self):
         source = RUNTIME_PATCH.read_text()
         self.assertNotIn('frida', source.lower())
         self.assertNotIn('dependsOn', source)
-        self.assertIn('disabled', source)
+        self.assertIn('endTransaction', source)
+        self.assertIn('TraktProgressBridge', source)
+        self.assertIn('onTransactionEnded', source)
+        self.assertIn('extendWith("extensions/trakt.mpe")', source)
+
+        bridge = PROGRESS_BRIDGE.read_text()
+        self.assertIn('TvPlayer.db', bridge)
+        self.assertIn('episode_last_played_positions', bridge)
+        self.assertIn('last_played_positions', bridge)
+        self.assertIn('PRAGMA table_info', bridge)
+        self.assertIn('ThreadLocal<Boolean>', bridge)
+        self.assertIn('database.inTransaction()', bridge)
+        self.assertNotIn('HttpURLConnection', bridge)
 
 
 if __name__ == "__main__":
