@@ -189,6 +189,9 @@ public final class TraktPatchExtension {
             Class<?> preferenceClass = Class.forName("androidx.preference.Preference");
             Object preference = Class.forName("com.tivimate.traktpatch.extension.NativeTraktPreference")
                     .getConstructor(Context.class).newInstance(context);
+            Object vodPreference = findPreferenceByTitle(screen, "VOD");
+            if (vodPreference == null) return;
+            copyPreferencePresentation(vodPreference, preference);
             setPreferenceField(preferenceClass, preference, "ˑﾞ", KEY);
             setPreferenceField(preferenceClass, preference, "ـˆ", TITLE);
             setPreferenceField(preferenceClass, preference, "ᴵʼ", SUMMARY);
@@ -198,6 +201,62 @@ public final class TraktPatchExtension {
             Log.i(TAG, "added native preference to Leanback PreferenceScreen");
         } catch (ReflectiveOperationException error) {
             Log.w(TAG, "native PreferenceScreen insertion failed", error);
+        }
+    }
+
+    private static Object findPreferenceByTitle(Object screen, String wantedTitle) {
+        for (Class<?> type = screen.getClass(); type != null; type = type.getSuperclass()) {
+            for (Field field : type.getDeclaredFields()) {
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(screen);
+                    if (!(value instanceof List)) continue;
+                    for (Object candidate : (List<?>) value) {
+                        if (candidate != null && hasPreferenceTitle(candidate, wantedTitle)) return candidate;
+                    }
+                } catch (IllegalAccessException ignored) { }
+            }
+        }
+        return null;
+    }
+
+    private static boolean hasPreferenceTitle(Object preference, String wantedTitle) {
+        for (Class<?> type = preference.getClass(); type != null; type = type.getSuperclass()) {
+            for (Method method : type.getDeclaredMethods()) {
+                if (method.getParameterTypes().length != 0
+                        || !CharSequence.class.isAssignableFrom(method.getReturnType())) continue;
+                try {
+                    method.setAccessible(true);
+                    Object value = method.invoke(preference);
+                    if (wantedTitle.equals(value)) return true;
+                } catch (ReflectiveOperationException ignored) { }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * TiviMate assigns its selected-state drawable through the VOD row's layout
+     * resource. Copy only resource-id fields; identity, order and title remain
+     * unique to Trakt.
+     */
+    private static void copyPreferencePresentation(Object source, Object target)
+            throws IllegalAccessException {
+        for (Class<?> type = source.getClass(); type != null; type = type.getSuperclass()) {
+            for (Field field : type.getDeclaredFields()) {
+                if (field.getType() != Integer.TYPE) continue;
+                if (!field.getDeclaringClass().isInstance(target)) continue;
+                field.setAccessible(true);
+                int value = field.getInt(source);
+                if (value < 0x01000000) continue;
+                try {
+                    Field targetField = field.getDeclaringClass().getDeclaredField(field.getName());
+                    targetField.setAccessible(true);
+                    targetField.setInt(target, value);
+                } catch (NoSuchFieldException ignored) {
+                    // Concrete VOD-only fields are not part of Preference.
+                }
+            }
         }
     }
 
