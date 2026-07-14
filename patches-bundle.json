@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T09:15:00",
-  "description": "Diagnostic v0.1.24: records whether the native Trakt click reaches Device Authorization on the protected runtime.",
-  "display_name": "TiviMate Trakt diagnostic v0.1.24",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.24.mpp",
+  "created_at": "2026-07-14T09:25:00",
+  "description": "TiviMate Trakt v0.1.25: binds Device Authorization directly to the native Leanback row after its protected Preference view is bound.",
+  "display_name": "TiviMate Trakt v0.1.25",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.25.mpp",
   "signature_download_url": "",
-  "version": "0.1.24"
+  "version": "0.1.25"
 }

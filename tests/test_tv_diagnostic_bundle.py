@@ -21,6 +21,7 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         native = (ROOT / 'morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/NativeTraktPreference.java').read_text()
         self.assertIn('public void ˏᴵ()', native)
         self.assertIn('public void ʿˏ(View view)', native)
+        self.assertIn('view.setOnClickListener', native)
         self.assertIn('TraktDeviceAuth.open(context)', native)
         # Every newly created Other PreferenceScreen must get a row. A process-wide
         # boolean makes the row disappear after leaving and re-entering Other.

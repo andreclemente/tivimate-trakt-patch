@@ -20,9 +20,13 @@ public final class NativeTraktPreference extends Preference {
         TraktDeviceAuth.open(context);
     }
 
-    // The Leanback adapter dispatches clicks through Preference.performClick.
-    // Override the observed runtime entry point as well as onClick.
+    // Directly bind the native adapter-owned row. The compile-time AndroidX
+    // library does not expose the protected runtime's renamed super method.
     public void ʿˏ(View view) {
-        TraktDeviceAuth.open(context);
+        view.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View clicked) {
+                TraktDeviceAuth.open(context);
+            }
+        });
     }
 }
