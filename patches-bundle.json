@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-07-14T21:34:36Z",
+  "created_at": "2026-07-14T21:34:36",
   "description": "TiviMate Trakt v0.1.31: adds an opt-in runtime progress-capture patch for mapping committed movie and episode position changes. It performs no Trakt network writes.",
   "display_name": "TiviMate Trakt v0.1.31",
   "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.31.mpp",

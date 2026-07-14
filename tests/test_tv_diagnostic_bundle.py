@@ -1,5 +1,6 @@
 """Static guardrails for TiviMate's native Android-TV Trakt settings entry."""
 from pathlib import Path
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -8,6 +9,7 @@ PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/T
 RUNTIME_PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/TraktRuntimeSyncPatch.kt"
 DEVICE_AUTH = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktDeviceAuth.java"
 PROGRESS_BRIDGE = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktProgressBridge.java"
+PATCH_BUNDLE_DESCRIPTOR = ROOT / "patches-bundle.json"
 
 
 class TvTraktSettingsBundleTest(unittest.TestCase):
@@ -114,6 +116,13 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('ThreadLocal<Boolean>', bridge)
         self.assertIn('database.inTransaction()', bridge)
         self.assertNotIn('HttpURLConnection', bridge)
+
+    def test_manager_descriptor_uses_local_datetime_without_timezone_suffix(self):
+        descriptor = json.loads(PATCH_BUNDLE_DESCRIPTOR.read_text())
+        self.assertRegex(
+            descriptor["created_at"],
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$",
+        )
 
 
 if __name__ == "__main__":
