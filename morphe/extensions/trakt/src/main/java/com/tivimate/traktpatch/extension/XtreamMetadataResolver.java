@@ -50,6 +50,9 @@ public final class XtreamMetadataResolver {
                             || present(info, "release_date") || present(movie, "year");
                     Log.i(TAG, "resolved movie metadata tmdb=" + tmdb + " imdb=" + imdb
                             + " title=" + title + " year=" + year);
+                } catch (IllegalArgumentException error) {
+                    Log.w(TAG, "metadata URL rejected reason=" + error.getMessage()
+                            + " shape=" + XtreamUrlBuilder.diagnosticShape(playlistUrl));
                 } catch (Exception error) {
                     // Never include exception messages: URL failures can contain credentials.
                     Log.w(TAG, "metadata resolution failed type=" + error.getClass().getSimpleName());
