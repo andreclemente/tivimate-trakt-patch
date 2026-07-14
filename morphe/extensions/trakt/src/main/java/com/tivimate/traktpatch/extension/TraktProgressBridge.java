@@ -25,6 +25,11 @@ public final class TraktProgressBridge {
             "last_played_positions",
             "episode_last_played_positions"
     };
+    private static final String[] SCHEMA_ONLY_TABLES = {
+            "movies",
+            "series",
+            "channels"
+    };
     private static final int MAX_LOGGED_CHANGES = 20;
     private static final ThreadLocal<Boolean> ACTIVE = new ThreadLocal<>();
     private static final Map<String, List<String>> SNAPSHOTS = new HashMap<>();
@@ -42,6 +47,7 @@ public final class TraktProgressBridge {
         ACTIVE.set(Boolean.TRUE);
         try {
             synchronized (SNAPSHOTS) {
+                for (String table : SCHEMA_ONLY_TABLES) logSchema(database, table);
                 for (String table : TABLES) capture(database, table);
             }
         } catch (RuntimeException error) {
@@ -52,10 +58,7 @@ public final class TraktProgressBridge {
     }
 
     private static void capture(SQLiteDatabase database, String table) {
-        if (!SCHEMAS_LOGGED.contains(table)) {
-            Log.i(TAG, "schema " + table + ": " + readSchema(database, table));
-            SCHEMAS_LOGGED.add(table);
-        }
+        logSchema(database, table);
 
         List<String> current = readRows(database, table);
         List<String> previous = SNAPSHOTS.put(table, current);
@@ -78,6 +81,12 @@ public final class TraktProgressBridge {
                 + " removed=" + removed.size() + " added=" + added.size());
         logChanges(table, "removed", removed);
         logChanges(table, "added", added);
+    }
+
+    private static void logSchema(SQLiteDatabase database, String table) {
+        if (SCHEMAS_LOGGED.add(table)) {
+            Log.i(TAG, "schema " + table + ": " + readSchema(database, table));
+        }
     }
 
     private static String readSchema(SQLiteDatabase database, String table) {
