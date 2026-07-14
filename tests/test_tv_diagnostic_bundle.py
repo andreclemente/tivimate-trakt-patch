@@ -115,6 +115,8 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('PRAGMA table_info', bridge)
         self.assertIn('SCHEMA_ONLY_TABLES', bridge)
         self.assertIn('"movies"', bridge)
+        self.assertIn('last_played_position_ms', bridge)
+        self.assertIn('duration_ms', bridge)
         self.assertIn('"series"', bridge)
         self.assertIn('"channels"', bridge)
         self.assertIn('ThreadLocal<Boolean>', bridge)

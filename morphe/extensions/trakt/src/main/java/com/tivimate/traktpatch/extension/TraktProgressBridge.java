@@ -22,11 +22,11 @@ public final class TraktProgressBridge {
     private static final String TAG = "TiviMateTraktDb";
     private static final String DATABASE_NAME = "TvPlayer.db";
     private static final String[] TABLES = {
+            "movies",
             "last_played_positions",
             "episode_last_played_positions"
     };
     private static final String[] SCHEMA_ONLY_TABLES = {
-            "movies",
             "series",
             "channels"
     };
@@ -107,7 +107,14 @@ public final class TraktProgressBridge {
     }
 
     private static List<String> readRows(SQLiteDatabase database, String table) {
-        Cursor cursor = database.rawQuery("SELECT * FROM `" + table + "`", null);
+        String query;
+        if ("movies".equals(table)) {
+            query = "SELECT id, playlist_id, xc_id, stalker_id, last_played_position_ms, duration_ms "
+                    + "FROM movies WHERE last_played_position_ms > 0 OR duration_ms > 0";
+        } else {
+            query = "SELECT * FROM `" + table + "`";
+        }
+        Cursor cursor = database.rawQuery(query, null);
         try {
             String[] columns = cursor.getColumnNames();
             List<String> rows = new ArrayList<>();
