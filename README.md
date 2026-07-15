@@ -1,67 +1,60 @@
 # TiviMate Trakt Sync Patch
 
-Personal-use research and reproducible patching workspace for adding runtime Trakt synchronization to a legitimately installed TiviMate Premium APK.
+Morphe patch bundle adding native Trakt Device Authorization and runtime movie/episode progress sync to TiviMate 8K Pro 5.1.6 (`ar.tvplayer.tv`).
 
-## Boundaries
+## Current release
 
-This project does **not** remove or bypass TiviMate Premium licensing, DRM, purchase checks, provider access controls, IPTV credentials, or content access mechanisms. APK files, private app data, databases, provider URLs, tokens, signing keys, and patched proprietary APKs must not be committed.
+- Version: `0.1.38`
+- Manager source: `https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/patches-bundle.json`
+- Target: TiviMate 5.1.6 (`versionCode 5161`)
+- Patches:
+  - `TiviMate Trakt settings/login`
+  - `TiviMate Trakt runtime progress sync`
 
-## Product goal
+## Behavior
 
-The product goal is **runtime sync with Trakt via hooks/functions**, not a backup-file workflow.
+1. Adds a native, D-pad focusable Trakt entry under **Settings > Other**.
+2. Uses Trakt Device Authorization through the project Cloudflare Worker.
+3. Watches committed changes in TiviMate's movie and episode progress tables.
+4. Resolves stable movie/show identity from Xtream metadata.
+5. Sends authenticated Trakt `pause` below 80% and `stop` at or above 80%.
+6. Honors separate movie and show sync settings.
 
-Runtime integration should:
+No title-only matching is used. Missing stable IDs are skipped.
 
-- observe TiviMate playback/progress/watched/unwatched behavior at runtime;
-- map movie/episode state into neutral sync events;
-- queue and retry Trakt sync safely in the background;
-- avoid UI-thread network work;
-- avoid logging or transmitting IPTV/provider secrets or stream URLs.
+## Security boundaries
 
-Backup/export analysis is only a research fallback for proving local schema/state behavior.
+This project does not bypass TiviMate licensing, DRM, purchases, provider controls, or content access. Proprietary APKs, provider URLs, credentials, app data, tokens, signing keys, and patched APKs must never be committed.
 
-## Current milestone
+- Trakt client secret stays in the Worker.
+- TV tokens use Android Keystore-backed encrypted storage.
+- Provider requests preserve configured HTTP/HTTPS transport but never follow redirects.
+- Provider URLs, credentials, tokens, and raw database rows are not logged.
+- Network work runs outside TiviMate database transactions.
 
-Identify, with concrete evidence, where TiviMate stores playback progress and watched status for movies and episodes, then select the smallest stable runtime hook point.
-
-## Workflow
-
-1. Validate local tooling and device/emulator access.
-2. Inventory the supplied APK/split APKs.
-3. Decompile and index code/resources.
-4. Locate and verify storage/playback hooks through static evidence, runtime logs, and controlled state diffs.
-5. Build standalone Trakt sync core and queue independent of TiviMate.
-6. Prototype runtime hooks with Frida/LSPosed-style instrumentation.
-7. Only after hook behavior is proven, design the reproducible patch/module.
-
-## Key docs
-
-- `docs/architecture.md` — runtime-first architecture and non-goals.
-- `docs/patch-strategy.md` — reproducible APK patch delivery plan.
-- `docs/patch-framework-survey.md` — Morphe patch framework decision and risks.
-- `docs/android-device-support.md` — Android TV + phone/tablet patch constraints.
-- `docs/testing-now.md` — what can be tested now and exact Morphe commands.
-- `docs/phone-morphe-test.md` — simple phone test flow through Morphe Manager.
-- `docs/morphe-phone-smoke-result.md` — current phone smoke result: Morphe patches, APK does not launch.
-- `patches-bundle.json` + `dist/patches-0.1.0.mpp` — Morphe Manager source entrypoint/artifact.
-- `morphe/` — Morphe patch bundle scaffold. Morphe is the target framework.
-- `docs/trakt-login-settings.md` — Trakt login/settings screen design.
-- `docs/trakt-api.md` — Trakt API contract.
-- `docs/sync-queue.md` — durable queue/idempotency design.
-- `docs/runtime-capture-runbook.md` — what to run on emulator/device.
-- `docs/static-wall-and-emulator.md` — why runtime evidence is needed.
-
-## Usage placeholders
-
-Set the APK path before running inspection scripts:
+## Build and test
 
 ```sh
-export APK_PATH=/absolute/path/to/base.apk
-./tools/inspect-apk.sh
+python3 -m unittest -v \
+  tests.test_progress_math \
+  tests.test_xtream_url_builder \
+  tests.test_tv_diagnostic_bundle
+node --test oauth-worker/test/worker.test.mjs
+
+cd morphe
+./gradlew --no-daemon :extensions:trakt:assembleRelease :patches:buildAndroid
 ```
 
-Run static search:
+Patch verification requires a legally obtained TiviMate 5.1.6 APK and Morphe CLI:
 
 ```sh
-./tools/search-code.sh 'last_played_positions|episode_last_played_positions|history_programs'
+java -jar morphe-cli.jar patch \
+  --exclusive \
+  -p=dist/patches-0.1.38.mpp \
+  -e='TiviMate Trakt settings/login' \
+  -e='TiviMate Trakt runtime progress sync' \
+  -o=patched.apk \
+  Tivi8KPro.apk
 ```
+
+See [`docs/architecture.md`](docs/architecture.md) and [`docs/verification.md`](docs/verification.md).

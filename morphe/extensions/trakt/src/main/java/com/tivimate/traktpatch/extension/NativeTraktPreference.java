@@ -13,7 +13,7 @@ public final class NativeTraktPreference extends Preference {
         this.context = context;
     }
 
-    // This is the exact v0.1.20 click path that opened the native dialog.
+    // Keep the proven native click path that opens the authorization dialog.
     public void ˏᴵ() {
         TraktDeviceAuth.open(context);
     }

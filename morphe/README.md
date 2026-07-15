@@ -1,65 +1,24 @@
-# TiviMate Trakt Morphe Patch Bundle
+# Morphe bundle
 
-This is the only target patch framework for the project.
+Production Morphe bundle for TiviMate Trakt sync.
 
-## Decision
+## Modules
 
-Use **Morphe**, not ReVanced, for the TiviMate Trakt APK patch.
+- `patches/`: settings bootstrap and committed-transaction runtime hook.
+- `extensions/trakt/`: native settings UI, encrypted Device Authorization, progress capture, Xtream metadata resolution, and Worker-backed Trakt scrobbling.
 
-Expected final patch command shape:
+No separate shared extension is required; required helper classes are packaged inside `extensions/trakt.mpe`.
 
-```sh
-java -jar morphe-cli.jar patch --patches tivimate-trakt-patches.mpp input/TiviMate.apk
-```
-
-## Current status
-
-Scaffold only. The patch stubs compile structurally but do not modify TiviMate until these are mapped:
-
-1. TiviMate settings/menu insertion point.
-2. Playback/progress/watched hook point.
-3. Media metadata extraction path.
-
-## Planned patches
-
-- `TiviMate Trakt settings/login`
-- `TiviMate Trakt runtime sync`
-- `TiviMate mobile/tablet form factor` — optional; pending a phone launch capture that identifies the protected native/decrypted device-class gate
-- optional debug/runtime discovery patch
-
-The mobile/tablet patch is deliberately separate from Trakt. The target app already declares both Leanback and touchscreen as optional, while its launch bootstrap is protected/native; a manifest-only change would be speculative. See [`../docs/mobile-form-factor-patch.md`](../docs/mobile-form-factor-patch.md).
-
-## Device support
-
-The patch must support both Android TV/TV box and phone/tablet:
-
-- TV: D-pad/focus navigation;
-- phone/tablet: touch navigation;
-- no required Leanback feature;
-- no required touchscreen feature.
-
-## Build notes
-
-Morphe Gradle artifacts are resolved from GitHub Packages:
-
-```properties
-# ~/.gradle/gradle.properties
-gpr.user=<github-user>
-gpr.key=<github-token-with-read-packages>
-```
-
-or environment variables:
+## Build
 
 ```sh
-export GITHUB_ACTOR=<github-user>
-export GITHUB_TOKEN=<github-token-with-read-packages>
+./gradlew --no-daemon :extensions:trakt:assembleRelease :patches:buildAndroid
 ```
 
-Build smoke test:
+Output:
 
-```sh
-cd morphe
-./gradlew --no-daemon :patches:build
+```text
+patches/build/libs/patches-<version>.mpp
 ```
 
-If building extensions, a full Android SDK is required.
+Morphe dependencies use GitHub Packages. Configure `gpr.user`/`gpr.key` in `~/.gradle/gradle.properties` or `GITHUB_ACTOR`/`GITHUB_TOKEN` in the environment. Never commit them.
