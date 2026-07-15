@@ -186,6 +186,13 @@ public final class TraktImportCoordinator {
             JSONObject wrapper = values.optJSONObject(i);
             JSONObject show = wrapper == null ? null : wrapper.optJSONObject("show");
             JSONArray seasons = wrapper == null ? null : wrapper.optJSONArray("seasons");
+            if (show != null && "among us".equals(
+                    TraktImportPolicy.normalizedTitle(show.optString("title", "")))) {
+                JSONObject ids = show.optJSONObject("ids");
+                Log.i(TAG, "show source among_us seasons=" + (seasons == null ? -1 : seasons.length())
+                        + " tmdb_valid=" + !(ids == null ? "" : TraktImportPolicy.stableTmdb(ids.opt("tmdb"))).isEmpty()
+                        + " imdb_valid=" + !(ids == null ? "" : TraktImportPolicy.stableImdb(ids.opt("imdb"))).isEmpty());
+            }
             if (show == null || seasons == null) continue;
             for (int s = 0; s < seasons.length(); s++) {
                 JSONObject season = seasons.optJSONObject(s);
