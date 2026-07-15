@@ -1,0 +1,137 @@
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+JAVA = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension"
+COORDINATOR = JAVA / "TraktImportCoordinator.java"
+BRIDGE = JAVA / "TraktProgressBridge.java"
+AUTH = JAVA / "TraktDeviceAuth.java"
+EXTENSION = JAVA / "TraktPatchExtension.java"
+
+
+class TraktImportStaticRegressionTest(unittest.TestCase):
+    def test_worker_import_contract_is_authenticated_post_and_bounded(self):
+        source = COORDINATOR.read_text()
+        for route in ("/v1/import/watched/movies", "/v1/import/watched/shows", "/v1/import/playback"):
+            self.assertIn(route, source)
+        self.assertIn('setRequestMethod("POST")', source)
+        self.assertIn('"Bearer " + token', source)
+        self.assertIn("MAX_PROVIDER_REQUESTS = 64", source)
+        self.assertIn("MAX_RESPONSE_CHARS = 2_000_000", source)
+        self.assertIn("Executors.newSingleThreadExecutor()", source)
+
+    def test_refresh_route_matches_worker_contract_exactly(self):
+        source = AUTH.read_text()
+        self.assertIn('workers.dev/v1/token"', source)
+        self.assertNotIn('workers.dev/v1/device/refresh"', source)
+
+    def test_title_is_only_a_shortlist_and_provider_stable_id_confirms(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("TraktImportPolicy.shortlist", source)
+        self.assertIn("providerInfo(candidate", source)
+        self.assertIn("TraktImportPolicy.sameStableId", source)
+        self.assertIn("XtreamUrlBuilder.vodInfoUrl", source)
+        self.assertIn("XtreamUrlBuilder.seriesInfoUrl", source)
+
+    def test_import_writes_expected_native_columns_and_safely_omits_insert_id(self):
+        source = COORDINATOR.read_text()
+        self.assertIn('values.put("last_played_position_ms", position)', source)
+        self.assertIn('values.put("duration_ms", duration)', source)
+        self.assertIn('values.put("position_ms", position)', source)
+        self.assertIn('values.put("series_id", series.id)', source)
+        self.assertIn('values.put("episode_xc_id", episodeXcId)', source)
+        self.assertIn("safeEpisodeInsertSchema", source)
+        insert = source[source.index('database.insert("episode_last_played_positions"'):]
+        self.assertNotIn('values.put("id"', insert)
+
+    def test_import_does_not_echo_and_temporary_schema_logging_is_removed(self):
+        coordinator = COORDINATOR.read_text()
+        bridge = BRIDGE.read_text()
+        self.assertIn("mergeExpectedRowsAfterImport", coordinator)
+        self.assertIn("mergeExpectedRowsAfterImport", bridge)
+        self.assertIn("mergeExpectedRows", bridge)
+        reconcile = bridge[bridge.index("mergeExpectedRowsAfterImport"):bridge.index("rowIdentity")]
+        self.assertNotIn("readRows(", reconcile)
+        self.assertIn("for (String row : expectedRows)", reconcile)
+        self.assertIn('return "id=" + candidate.id', coordinator)
+        self.assertIn('return "id=" + rowId', coordinator)
+        self.assertIn("IMPORT_WRITE.remove()", bridge)
+        self.assertNotIn("IMPORT_CAPTURE", bridge)
+        self.assertIn("if (commitRequested)", coordinator)
+        self.assertNotIn("logSchema", bridge)
+        self.assertNotIn("schema table=", bridge)
+
+    def test_running_import_coalesces_one_pending_rerun(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("PENDING.set(true)", source)
+        self.assertIn("while (PENDING.getAndSet(false))", source)
+        self.assertIn("if (PENDING.get()) requestImport()", source)
+
+    def test_playback_and_watched_categories_have_fair_bounded_budgets(self):
+        source = COORDINATOR.read_text()
+        self.assertLess(source.index("addPlayback(playback"), source.index("addWatchedMovies(movies"))
+        self.assertIn("PLAYBACK_REQUESTS = 24", source)
+        self.assertIn("MOVIE_REQUESTS = 20", source)
+        self.assertIn("SHOW_REQUESTS = MAX_PROVIDER_REQUESTS", source)
+        self.assertIn("while (hasPending(states))", source)
+        self.assertIn("matchCategoryBatch(states.get(0), PLAYBACK_REQUESTS", source)
+        self.assertIn("matchCategoryBatch(states.get(1), MOVIE_REQUESTS", source)
+        self.assertIn("matchCategoryBatch(states.get(2), SHOW_REQUESTS", source)
+        self.assertIn("scan.candidateIndex++", source)
+        self.assertIn("state.scans.remove(state.next)", source)
+        self.assertNotIn("CANDIDATE_CURSORS", source)
+        self.assertNotIn("PLAYBACK_CURSOR", source)
+
+    def test_catalog_is_paged_and_target_driven_not_arbitrarily_truncated(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("CATALOG_PAGE_SIZE = 500", source)
+        self.assertIn("c.id>?", source)
+        self.assertIn("ORDER BY c.id LIMIT", source)
+        self.assertIn("shortlistedByAny", source)
+        self.assertIn("TargetScan", source)
+        self.assertIn("candidateIndex", source)
+        self.assertNotIn("MAX_CATALOG", source)
+
+    def test_partial_playback_requires_native_duration_but_watched_may_fallback(self):
+        source = COORDINATOR.read_text()
+        self.assertEqual(source.count("if (!target.watched && localDuration <= 0L) return null;"), 2)
+        self.assertEqual(source.count(
+            "long duration = localDuration > 0 ? localDuration : durationMs("), 2)
+
+    def test_provider_identity_collects_every_valid_value_and_rejects_conflicts(self):
+        source = COORDINATOR.read_text()
+        start = source.index("providerIdentity(JSONObject")
+        identity = source[start:source.index("durationMs(", start)]
+        self.assertIn('new String[]{"tmdb_id", "tmdb"}', identity)
+        self.assertIn('new String[]{"imdb_id", "imdb"}', identity)
+        self.assertIn("tmdbValues.size() > 1 || imdbValues.size() > 1", identity)
+        self.assertIn("!identity.conflict", source)
+        self.assertNotIn("private static String stable(", source)
+
+    def test_episode_insert_schema_uses_pragma_metadata_and_fails_closed(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("PRAGMA table_info('episode_last_played_positions')", source)
+        self.assertIn('"INTEGER".equalsIgnoreCase(type.trim())', source)
+        self.assertIn("names.equals(expected) && validId", source)
+        self.assertNotIn("SELECT sql FROM sqlite_master", source)
+
+    def test_import_is_wired_at_connected_startup_and_authorization_success(self):
+        self.assertIn("TraktImportCoordinator.initialize(application)", EXTENSION.read_text())
+        self.assertIn("TraktImportCoordinator.requestImport()", AUTH.read_text())
+
+    def test_connected_scope_change_requests_import(self):
+        source = AUTH.read_text()
+        start = source.index("settings.set(scope)")
+        scope_handler = source[start:source.index("actions.addView(button", start)]
+        self.assertIn("TraktImportCoordinator.requestImport()", scope_handler)
+
+    def test_logs_do_not_include_secrets_urls_or_raw_rows(self):
+        source = COORDINATOR.read_text()
+        self.assertNotIn("Log.i(TAG, token", source)
+        self.assertNotIn("Log.i(TAG, url", source)
+        self.assertNotIn("Log.i(TAG, candidate", source)
+        self.assertNotIn("error.getMessage()", source)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

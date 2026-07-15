@@ -56,12 +56,17 @@ async function authenticatedTraktFetch(path, method, payload, accessToken, env, 
     },
     ...(payload ? { body: JSON.stringify(payload) } : {}),
   });
+  const responseHeaders = {
+    ...JSON_HEADERS,
+    'content-type': upstream.headers.get('content-type') || 'application/json; charset=utf-8',
+  };
+  for (const name of ['x-pagination-page', 'x-pagination-page-count', 'x-pagination-limit', 'x-pagination-item-count']) {
+    const value = upstream.headers.get(name);
+    if (value) responseHeaders[name] = value;
+  }
   return new Response(await upstream.text(), {
     status: upstream.status,
-    headers: {
-      ...JSON_HEADERS,
-      'content-type': upstream.headers.get('content-type') || 'application/json; charset=utf-8',
-    },
+    headers: responseHeaders,
   });
 }
 
@@ -96,6 +101,17 @@ export async function handle(request, env, fetchImpl = fetch) {
   }
 
   const requestBody = await body(request);
+  const importRoutes = {
+    '/v1/import/watched/movies': '/sync/watched/movies',
+    '/v1/import/watched/shows': '/sync/watched/shows',
+    '/v1/import/playback': '/sync/playback',
+  };
+  if (importRoutes[path]) {
+    const accessToken = bearerToken(request);
+    if (!accessToken) return json(401, { error: 'missing_authorization' });
+    return authenticatedTraktFetch(importRoutes[path], 'GET', null, accessToken, env, fetchImpl);
+  }
+
   const syncRoutes = {
     '/v1/sync/history': '/sync/history',
     '/v1/sync/history/remove': '/sync/history/remove',

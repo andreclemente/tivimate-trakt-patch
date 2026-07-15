@@ -90,6 +90,45 @@ test('authenticated history sync forwards the bearer token only as an upstream h
   assert.deepEqual(await forwarded.json(), { movies: [{ title: 'Example', year: 2026 }] });
 });
 
+test('imports current watched movies without exposing client credentials', async () => {
+  let forwarded;
+  const response = await handle(new Request('https://proxy.example/v1/import/watched/movies', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer user-access-token' },
+    body: '{}',
+  }), env, async (url, init) => {
+    forwarded = new Request(url, init);
+    return new Response(JSON.stringify([{ movie: { ids: { tmdb: 42 } } }]), {
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+  assert.equal(response.status, 200);
+  assert.equal(forwarded.url, 'https://api.trakt.tv/sync/watched/movies');
+  assert.equal(forwarded.method, 'GET');
+  assert.equal(forwarded.headers.get('authorization'), 'Bearer user-access-token');
+  assert.equal(await forwarded.text(), '');
+});
+
+test('imports current watched shows and partial playback', async () => {
+  const paths = [];
+  for (const path of ['/v1/import/watched/shows', '/v1/import/playback']) {
+    const response = await handle(new Request(`https://proxy.example${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer user-access-token' },
+      body: '{}',
+    }), env, async (url, init) => {
+      const forwarded = new Request(url, init);
+      paths.push({ url: forwarded.url, method: forwarded.method, body: await forwarded.text() });
+      return new Response('[]', { headers: { 'content-type': 'application/json' } });
+    });
+    assert.equal(response.status, 200);
+  }
+  assert.deepEqual(paths, [
+    { url: 'https://api.trakt.tv/sync/watched/shows', method: 'GET', body: '' },
+    { url: 'https://api.trakt.tv/sync/playback', method: 'GET', body: '' },
+  ]);
+});
+
 test('sync routes reject a missing bearer token', async () => {
   const response = await worker.fetch(new Request('https://proxy.example/v1/sync/history', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ movies: [] }),

@@ -68,6 +68,7 @@ public final class TraktPatchExtension {
         initialized = true;
         TraktSyncClient.initialize(application);
         TraktProgressBridge.initialize(application);
+        TraktImportCoordinator.initialize(application);
         startWindowPolling();
         application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             @Override public void onActivityCreated(Activity activity, Bundle state) {}

@@ -26,6 +26,7 @@ public final class TraktProgressBridge {
     private static final ExecutorService CAPTURE = Executors.newSingleThreadExecutor();
     private static final Map<String, List<String>> SNAPSHOTS = new HashMap<>();
     private static final Object SCHEDULE_LOCK = new Object();
+    private static final ThreadLocal<Boolean> IMPORT_WRITE = new ThreadLocal<>();
     private static SQLiteDatabase pendingDatabase;
     private static boolean pending;
     private static boolean running;
@@ -63,6 +64,9 @@ public final class TraktProgressBridge {
         String path = database.getPath();
         if (path == null || !(path.equals(DATABASE_NAME) || path.endsWith("/" + DATABASE_NAME))) return;
         if (database.inTransaction()) return;
+        // Suppress only the direct import transaction on this thread. Unrelated
+        // transaction threads continue to enqueue outbound capture normally.
+        if (Boolean.TRUE.equals(IMPORT_WRITE.get())) return;
         synchronized (SCHEDULE_LOCK) {
             pendingDatabase = database;
             pending = true;
@@ -72,6 +76,52 @@ public final class TraktProgressBridge {
         CAPTURE.execute(new Runnable() {
             @Override public void run() { drainCaptures(); }
         });
+    }
+
+    /** Scopes hook suppression to the current direct import transaction. */
+    public static void beginImportWrite() {
+        IMPORT_WRITE.set(Boolean.TRUE);
+    }
+
+    /** Clears thread state on success, rollback, and begin/end failure paths. */
+    public static void endImportWrite() {
+        IMPORT_WRITE.remove();
+    }
+
+    /**
+     * Merges the exact rows produced by committed inbound writes. Never reread the
+     * database here: a local transaction may have committed the same row between the
+     * import commit and reconciliation, and that newer value must remain exportable.
+     */
+    public static void mergeExpectedRowsAfterImport(Set<String> movieRows,
+                                                    Set<String> episodeRows) {
+        try {
+            synchronized (SNAPSHOTS) {
+                mergeExpectedRows("movies", movieRows);
+                mergeExpectedRows("episode_last_played_positions", episodeRows);
+            }
+        } catch (RuntimeException error) {
+            Log.w(TAG, "import baseline merge failed type=" + error.getClass().getSimpleName());
+        }
+    }
+
+    private static void mergeExpectedRows(String table, Set<String> expectedRows) {
+        if (expectedRows == null || expectedRows.isEmpty()) return;
+        List<String> previous = SNAPSHOTS.get(table);
+        List<String> merged = previous == null ? new ArrayList<String>() : new ArrayList<>(previous);
+        Set<String> keys = new HashSet<>();
+        for (String row : expectedRows) if (row != null) keys.add(rowIdentity(row, table));
+        for (int index = merged.size() - 1; index >= 0; index--) {
+            if (keys.contains(rowIdentity(merged.get(index), table))) merged.remove(index);
+        }
+        for (String row : expectedRows) if (row != null) merged.add(row);
+        Collections.sort(merged);
+        SNAPSHOTS.put(table, merged);
+    }
+
+    private static String rowIdentity(String row, String table) {
+        if ("movies".equals(table)) return rowValue(row, "id");
+        return rowValue(row, "series_id") + ':' + rowValue(row, "episode_xc_id");
     }
 
     private static void drainCaptures() {

@@ -44,7 +44,7 @@ public final class TraktDeviceAuth {
     private static final String DEVICE_TOKEN_URL =
             "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/token";
     private static final String DEVICE_REFRESH_URL =
-            "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/refresh";
+            "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/token";
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ExecutorService NETWORK = Executors.newSingleThreadExecutor();
 
@@ -155,6 +155,7 @@ public final class TraktDeviceAuth {
                     request.put("code", deviceCode);
                     final JSONObject token = post(DEVICE_TOKEN_URL, request);
                     new TokenStore(context).save(token);
+                    TraktImportCoordinator.requestImport();
                     MAIN.post(new Runnable() {
                         @Override public void run() {
                             if (dialog.isShowing()) dialog.dismiss();
@@ -312,6 +313,7 @@ public final class TraktDeviceAuth {
             button.setText(title);
             button.setOnClickListener(v -> {
                 settings.set(scope);
+                TraktImportCoordinator.requestImport();
                 text.setText("Trakt connected\n\nSync scope: " + settings.label()
                         + "\n\nPlayback progress sync is active.");
                 Toast.makeText(context, "Trakt sync scope: " + settings.label(), Toast.LENGTH_SHORT).show();
