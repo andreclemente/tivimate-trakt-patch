@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-15T08:11:51",
-  "description": "TiviMate Trakt v0.1.39: bidirectional movie and episode watched/progress sync with authenticated Trakt imports.",
-  "display_name": "TiviMate Trakt v0.1.39",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.39.mpp",
+  "created_at": "2026-07-15T09:16:57",
+  "description": "TiviMate Trakt v0.1.40: direct Trakt watched/progress sync; Worker limited to OAuth authentication and public client bootstrap.",
+  "display_name": "TiviMate Trakt v0.1.40",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.40.mpp",
   "signature_download_url": "",
-  "version": "0.1.39"
+  "version": "0.1.40"
 }
