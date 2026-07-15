@@ -103,6 +103,8 @@ test('imports current watched movies without exposing client credentials', async
     });
   });
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get('x-tivimate-trakt-worker-build'), '2026-07-15-inbound-v1');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.equal(forwarded.url, 'https://api.trakt.tv/sync/watched/movies');
   assert.equal(forwarded.method, 'GET');
   assert.equal(forwarded.headers.get('authorization'), 'Bearer user-access-token');

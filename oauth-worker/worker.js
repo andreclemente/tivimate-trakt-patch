@@ -1,9 +1,11 @@
 const TRAKT_API = 'https://api.trakt.tv';
 const REDIRECT_URI = 'https://andreclemente.github.io/tivimate-trakt-patch/oauth/callback/';
+const WORKER_BUILD = '2026-07-15-inbound-v1';
 const JSON_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
   'x-content-type-options': 'nosniff',
+  'x-tivimate-trakt-worker-build': WORKER_BUILD,
 };
 
 function json(status, value) {
