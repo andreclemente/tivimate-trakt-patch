@@ -393,10 +393,10 @@ public final class TraktImportCoordinator {
             executor.shutdownNow();
         }
 
-        // Category and target insertion order determines write order. Each scan retains
-        // only compact fields from its lowest catalog-order stable-ID match.
+        // Category, target, and catalog insertion order determine write order. Every
+        // independently stable-ID-confirmed catalog duplicate receives native state.
         for (CategoryState state : states) for (TargetScan scan : state.scans) {
-            if (scan.match != null) matches.add(scan.match);
+            matches.addAll(scan.matches);
         }
         return providerTasks.size();
     }
@@ -416,8 +416,6 @@ public final class TraktImportCoordinator {
                         + " provider_tmdb=" + identity.tmdb + " provider_imdb=" + identity.imdb);
             }
             if (("movie".equals(scan.target.type)) != resolution.movie
-                    || (scan.match != null
-                    && scan.match.candidate.catalogOrder <= candidate.catalogOrder)
                     || !shortlisted || !stableMatch) continue;
             Match match = new Match();
             match.candidate = candidate;
@@ -435,7 +433,7 @@ public final class TraktImportCoordinator {
                         + match.episodeXcId.matches("[0-9]+")
                         + " provider_duration=" + match.providerDurationMs);
             }
-            scan.match = match;
+            scan.matches.add(match);
         }
     }
 
@@ -728,7 +726,7 @@ public final class TraktImportCoordinator {
     private static final class TargetScan {
         final Target target;
         final List<Candidate> candidates;
-        Match match;
+        final List<Match> matches = new ArrayList<>();
 
         TargetScan(Target target, List<Candidate> movies, List<Candidate> series) {
             this.target = target;

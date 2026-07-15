@@ -163,6 +163,14 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("providerDurationMs", match)
         self.assertNotIn("matchCategoryBatch", source)
 
+    def test_all_stable_id_catalog_duplicates_receive_native_state(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("final List<Match> matches = new ArrayList<>()", source)
+        self.assertIn("scan.matches.add(match)", source)
+        self.assertIn("matches.addAll(scan.matches)", source)
+        self.assertNotIn("scan.match.candidate.catalogOrder", source)
+        self.assertNotIn("scan.match = match", source)
+
     def test_provider_failures_propagate_before_database_writes(self):
         source = COORDINATOR.read_text()
         worker_start = source.index("new Callable<Resolution>()")
