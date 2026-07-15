@@ -89,7 +89,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('"/sync/watched/shows?extended=full"', source)
         self.assertIn('"/sync/playback?extended=full"', source)
         self.assertIn("target.traktDurationMs", source)
-        self.assertIn("providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs", source)
+        self.assertEqual(source.count("TraktImportPolicy.selectWatchedDuration("), 2)
 
     def test_title_is_only_a_shortlist_and_provider_stable_id_confirms(self):
         source = COORDINATOR.read_text()
@@ -192,7 +192,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         source = COORDINATOR.read_text()
         self.assertEqual(source.count("if (!target.watched && localDuration <= 0L) return null;"), 2)
         self.assertEqual(source.count(
-            "providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs"), 2)
+            "TraktImportPolicy.selectWatchedDuration("), 2)
 
     def test_provider_identity_collects_every_valid_value_and_rejects_conflicts(self):
         source = COORDINATOR.read_text()

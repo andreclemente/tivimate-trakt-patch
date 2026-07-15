@@ -22,6 +22,8 @@ public final class Harness {
     if (a[0].equals("shortlist")) System.out.print(TraktImportPolicy.shortlist(a[1],Integer.parseInt(a[2]),a[3],Integer.parseInt(a[4])));
     if (a[0].equals("merge")) System.out.print(TraktImportPolicy.mergePosition(Long.parseLong(a[1]),Long.parseLong(a[2]),Double.parseDouble(a[3]),Boolean.parseBoolean(a[4])));
     if (a[0].equals("clock")) System.out.print(TraktImportPolicy.parseClockDurationMs(a[1]));
+    if (a[0].equals("watchedDuration")) System.out.print(TraktImportPolicy.selectWatchedDuration(
+        Long.parseLong(a[1]), Long.parseLong(a[2]), Long.parseLong(a[3])));
     if (a[0].equals("index")) {
       List<String> titles = new ArrayList<>();
       List<Integer> years = new ArrayList<>();
@@ -78,6 +80,12 @@ public final class Harness {
         self.assertEqual(self.run_policy("merge", "10000", "0", "100", "true").stdout, "10000")
         self.assertEqual(self.run_policy("merge", "120000", "100000", "25", "false").stdout, "120000")
         self.assertEqual(self.run_policy("merge", "120000", "100000", "2", "true").stdout, "120000")
+
+    def test_watched_duration_rejects_corrupt_provider_and_local_values(self):
+        self.assertEqual(self.run_policy("watchedDuration", "110000", "110000", "6300000").stdout, "6300000")
+        self.assertEqual(self.run_policy("watchedDuration", "6000000", "5640000", "6300000").stdout, "6000000")
+        self.assertEqual(self.run_policy("watchedDuration", "0", "5640000", "6300000").stdout, "5640000")
+        self.assertEqual(self.run_policy("watchedDuration", "0", "0", "6300000").stdout, "6300000")
 
 
 if __name__ == "__main__":

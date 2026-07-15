@@ -476,8 +476,10 @@ public final class TraktImportCoordinator {
             long localDuration = cursor.isNull(3) ? 0L : cursor.getLong(3);
             String localDurationValue = cursor.isNull(3) ? "null" : cursor.getString(3);
             if (!target.watched && localDuration <= 0L) return null;
-            long duration = localDuration > 0 ? localDuration
-                    : (providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs);
+            long duration = target.watched
+                    ? TraktImportPolicy.selectWatchedDuration(localDuration,
+                    providerDurationMs, target.traktDurationMs)
+                    : (localDuration > 0 ? localDuration : providerDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
             if (position == localPosition && duration == localDuration) {
                 Log.i(TAG, "movie unchanged watched=" + target.watched
@@ -510,8 +512,10 @@ public final class TraktImportCoordinator {
             long localPosition = exists && !cursor.isNull(1) ? cursor.getLong(1) : 0L;
             long localDuration = exists && !cursor.isNull(2) ? cursor.getLong(2) : 0L;
             if (!target.watched && localDuration <= 0L) return null;
-            long duration = localDuration > 0 ? localDuration
-                    : (providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs);
+            long duration = target.watched
+                    ? TraktImportPolicy.selectWatchedDuration(localDuration,
+                    providerDurationMs, target.traktDurationMs)
+                    : (localDuration > 0 ? localDuration : providerDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
             if (duration <= 0 || (exists && position == localPosition && duration == localDuration)) {
                 Log.i(TAG, "episode unchanged watched=" + target.watched + " exists=" + exists

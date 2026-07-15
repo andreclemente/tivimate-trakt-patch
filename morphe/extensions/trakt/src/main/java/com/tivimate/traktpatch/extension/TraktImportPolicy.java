@@ -123,6 +123,20 @@ public final class TraktImportPolicy {
         }
     }
 
+    /** Prefer native/provider duration only when plausible against Trakt's full runtime. */
+    public static long selectWatchedDuration(long localDuration, long providerDuration,
+                                             long traktDuration) {
+        long trusted = traktDuration > 0L && traktDuration < 86_400_000L ? traktDuration : 0L;
+        if (trusted == 0L) return localDuration > 0L ? localDuration : Math.max(0L, providerDuration);
+        if (plausibleDuration(localDuration, trusted)) return localDuration;
+        if (plausibleDuration(providerDuration, trusted)) return providerDuration;
+        return trusted;
+    }
+
+    private static boolean plausibleDuration(long candidate, long trusted) {
+        return candidate > 0L && candidate >= trusted / 2L && candidate <= trusted * 2L;
+    }
+
     /** Watched dominates; otherwise progress can only move forward. */
     public static long mergePosition(long localPosition, long duration,
                                      double remotePercent, boolean watched) {
