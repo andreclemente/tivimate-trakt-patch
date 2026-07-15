@@ -34,7 +34,8 @@ public final class TraktImportCoordinator {
     private static final String TAG = "TiviMateTraktImport";
     private static final String TRAKT_API = "https://api.trakt.tv";
     private static final String DATABASE_NAME = "TvPlayer.db";
-    private static final String[] ROUTES = {"/sync/watched/movies", "/sync/watched/shows", "/sync/playback"};
+    private static final String[] ROUTES = {"/sync/watched/movies?extended=full",
+            "/sync/watched/shows?extended=full", "/sync/playback?extended=full"};
     private static final int CATALOG_PAGE_SIZE = 500;
     private static final int PROVIDER_THREADS = 8;
     private static final int PROVIDER_BATCH_SIZE = 32;
@@ -194,6 +195,10 @@ public final class TraktImportCoordinator {
                 if (target != null && episode != null) {
                     target.season = episode.optInt("season", 0);
                     target.episode = episode.optInt("number", 0);
+                    long runtimeMinutes = episode.optLong("runtime", 0L);
+                    if (runtimeMinutes > 0L && runtimeMinutes < 1440L) {
+                        target.traktDurationMs = runtimeMinutes * 60_000L;
+                    }
                     if (target.season > 0 && target.episode > 0) put(targets, target);
                 }
             }
@@ -214,6 +219,10 @@ public final class TraktImportCoordinator {
         value.year = media.optInt("year", 0);
         value.watched = watched;
         value.progress = progress;
+        long runtimeMinutes = media.optLong("runtime", 0L);
+        if (runtimeMinutes > 0L && runtimeMinutes < 1440L) {
+            value.traktDurationMs = runtimeMinutes * 60_000L;
+        }
         return value;
     }
 
@@ -230,6 +239,8 @@ public final class TraktImportCoordinator {
             if (existing == null) continue;
             if (entry.getValue().watched) existing.watched = true;
             existing.progress = Math.max(existing.progress, entry.getValue().progress);
+            existing.traktDurationMs = Math.max(existing.traktDurationMs,
+                    entry.getValue().traktDurationMs);
             watched.remove(entry.getKey());
         }
     }
@@ -465,7 +476,8 @@ public final class TraktImportCoordinator {
             long localDuration = cursor.isNull(3) ? 0L : cursor.getLong(3);
             String localDurationValue = cursor.isNull(3) ? "null" : cursor.getString(3);
             if (!target.watched && localDuration <= 0L) return null;
-            long duration = localDuration > 0 ? localDuration : providerDurationMs;
+            long duration = localDuration > 0 ? localDuration
+                    : (providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
             if (position == localPosition && duration == localDuration) return null;
             ContentValues values = new ContentValues();
@@ -489,7 +501,8 @@ public final class TraktImportCoordinator {
             long localPosition = exists && !cursor.isNull(1) ? cursor.getLong(1) : 0L;
             long localDuration = exists && !cursor.isNull(2) ? cursor.getLong(2) : 0L;
             if (!target.watched && localDuration <= 0L) return null;
-            long duration = localDuration > 0 ? localDuration : providerDurationMs;
+            long duration = localDuration > 0 ? localDuration
+                    : (providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
             if (duration <= 0 || (exists && position == localPosition && duration == localDuration)) return null;
             ContentValues values = new ContentValues();
@@ -622,6 +635,7 @@ public final class TraktImportCoordinator {
         int year, season, episode;
         boolean watched;
         double progress;
+        long traktDurationMs;
         String key() { return type + ':' + (!tmdb.isEmpty() ? "tmdb:" + tmdb : "imdb:" + imdb) + ':' + season + ':' + episode; }
     }
 
