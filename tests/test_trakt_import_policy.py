@@ -53,7 +53,7 @@ public final class Harness {
     def test_title_and_year_only_shortlist(self):
         self.assertEqual(self.run_policy("shortlist", "Amélie (2001)", "0", "Amelie 2001", "0").stdout, "true")
         self.assertEqual(self.run_policy("shortlist", "Alien", "1979", "Alien", "2024").stdout, "false")
-        self.assertEqual(self.run_policy("shortlistSeries", "\u200eIR | Among Us (2026)", "2026", "Among Us", "2023").stdout, "true")
+        self.assertEqual(self.run_policy("shortlistSeries", "\u200eIR | Among Us (2026) (US)", "2026", "Among Us", "2026").stdout, "true")
 
     def test_indexed_shortlist_preserves_title_and_year_semantics(self):
         targets = ("Amélie (2001)", "2001", "Alien", "1979", "Arrival", "0")

@@ -41,7 +41,7 @@ public final class TraktImportPolicy {
                 .replaceFirst("(?i)^\\s*(?:[a-z]{2,4}(?:/[a-z]{2,4})?|top|ar-subs)\\s*[-:|–—]\\s*", "");
         String ascii = Normalizer.normalize(cleaned, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").toLowerCase(Locale.US)
-                .replaceFirst("\\s*\\(?(?:19|20)[0-9]{2}\\)?\\s*$", "");
+                .replaceFirst("\\s*\\(?(?:19|20)[0-9]{2}\\)?(?:\\s*\\([a-z]{2,3}\\))?\\s*$", "");
         return ascii.replaceAll("[^a-z0-9]+", " ").trim().replaceAll(" +", " ");
     }
 
