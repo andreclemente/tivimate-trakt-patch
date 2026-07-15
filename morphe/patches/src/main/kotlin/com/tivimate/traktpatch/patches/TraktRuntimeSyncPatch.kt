@@ -20,16 +20,15 @@ private object EndTransactionFingerprint : Fingerprint(
 )
 
 /**
- * Opt-in first runtime slice: capture committed changes in TiviMate's two
- * playback-position tables. This deliberately performs no network sync until
- * runtime evidence proves the schema, identity columns, units, and completion
+ * Runtime sync: observe committed changes in TiviMate's playback-position
+ * tables, resolve stable Xtream metadata, then scrobble through the Worker
  * semantics.
  */
 @Suppress("unused")
 val traktRuntimeSyncPatch = bytecodePatch(
-    name = "TiviMate Trakt runtime progress capture",
-    description = "Captures committed TvPlayer.db watched-position changes for verified Trakt sync mapping; no network writes yet.",
-    default = false
+    name = "TiviMate Trakt runtime progress sync",
+    description = "Syncs committed movie and episode playback progress to Trakt using stable provider metadata.",
+    default = true
 ) {
     compatibleWith(COMPATIBILITY_TIVIMATE)
     extendWith("extensions/trakt.mpe")

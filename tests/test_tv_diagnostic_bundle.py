@@ -7,9 +7,11 @@ ROOT = Path(__file__).resolve().parents[1]
 EXTENSION = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktPatchExtension.java"
 PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/TraktSettingsPatch.kt"
 RUNTIME_PATCH = ROOT / "morphe/patches/src/main/kotlin/com/tivimate/traktpatch/patches/TraktRuntimeSyncPatch.kt"
+PATCH_BUILD = ROOT / "morphe/patches/build.gradle.kts"
 DEVICE_AUTH = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktDeviceAuth.java"
 PROGRESS_BRIDGE = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktProgressBridge.java"
 METADATA_RESOLVER = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/XtreamMetadataResolver.java"
+SYNC_CLIENT = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktSyncClient.java"
 PATCH_BUNDLE_DESCRIPTOR = ROOT / "patches-bundle.json"
 
 
@@ -71,6 +73,9 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         source = DEVICE_AUTH.read_text()
         self.assertIn('https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/code', source)
         self.assertIn('https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/token', source)
+        self.assertIn('https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/refresh', source)
+        self.assertIn('storedTokenStillValid', source)
+        self.assertIn('refreshAccessToken', source)
         self.assertIn('KeyGenParameterSpec', source)
         self.assertIn('new Dialog(uiContext)', source)
         self.assertIn('if (isConnected(context))', source)
@@ -112,17 +117,19 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         bridge = PROGRESS_BRIDGE.read_text()
         self.assertIn('TvPlayer.db', bridge)
         self.assertIn('episode_last_played_positions', bridge)
-        self.assertIn('last_played_positions', bridge)
-        self.assertIn('PRAGMA table_info', bridge)
-        self.assertIn('SCHEMA_ONLY_TABLES', bridge)
+        self.assertNotIn('"last_played_positions"', bridge)
+        self.assertNotIn('PRAGMA table_info', bridge)
         self.assertIn('"movies"', bridge)
         self.assertIn('last_played_position_ms', bridge)
         self.assertIn('duration_ms', bridge)
-        self.assertIn('"series"', bridge)
-        self.assertIn('"channels"', bridge)
-        self.assertIn('"playlists"', bridge)
-        self.assertIn('ThreadLocal<Boolean>', bridge)
+        self.assertNotIn('ThreadLocal<Boolean>', bridge)
         self.assertIn('database.inTransaction()', bridge)
+        self.assertIn('public static void initialize(Context context)', bridge)
+        self.assertIn('SQLiteDatabase.OPEN_READONLY', bridge)
+        self.assertIn('TraktProgressBridge.initialize(application)', EXTENSION.read_text())
+        self.assertIn('Executors.newSingleThreadExecutor()', bridge)
+        self.assertNotIn('logChanges(', bridge)
+        self.assertIn('default = true', source)
         self.assertNotIn('HttpURLConnection', bridge)
 
     def test_xtream_identity_resolution_runs_off_the_database_hook_and_redacts_credentials(self):
@@ -132,11 +139,50 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('XtreamMetadataResolver.resolveAsync', bridge)
         self.assertNotIn('HttpURLConnection', bridge)
         self.assertIn('Executors.newSingleThreadExecutor', resolver)
+        self.assertIn('MAX_PENDING = 64', resolver)
+        self.assertIn('enqueue("movie:"', resolver)
+        self.assertIn('setInstanceFollowRedirects(false)', resolver)
         self.assertIn('XtreamUrlBuilder.vodInfoUrl', resolver)
         self.assertIn('HttpURLConnection', resolver)
         self.assertIn('resolved movie metadata', resolver)
         self.assertNotIn('Log.i(TAG, playlistUrl', resolver)
         self.assertNotIn('Log.i(TAG, infoUrl', resolver)
+        self.assertNotIn('error.getMessage()', resolver)
+
+    def test_movie_progress_resolves_identity_then_posts_authenticated_scrobble(self):
+        bridge = PROGRESS_BRIDGE.read_text()
+        resolver = METADATA_RESOLVER.read_text()
+        self.assertTrue(SYNC_CLIENT.exists(), "Trakt sync client is missing")
+        client = SYNC_CLIENT.read_text()
+        self.assertIn('last_played_position_ms', bridge)
+        self.assertIn('duration_ms', bridge)
+        self.assertIn('TraktSyncClient.submitMovie', resolver)
+        self.assertIn('/v1/scrobble/pause', client)
+        self.assertIn('/v1/scrobble/stop', client)
+        self.assertIn('Authorization', client)
+        self.assertIn('Bearer ', client)
+        self.assertIn('TraktDeviceAuth.accessToken', client)
+        self.assertNotIn('Log.i(TAG, accessToken', client)
+        self.assertNotIn('error.getMessage()', client)
+
+    def test_episode_progress_resolves_series_identity_then_posts_scrobble(self):
+        bridge = PROGRESS_BRIDGE.read_text()
+        resolver = METADATA_RESOLVER.read_text()
+        client = SYNC_CLIENT.read_text()
+        self.assertIn('episode_last_played_positions', bridge)
+        self.assertIn('resolveEpisodeAsync', resolver)
+        self.assertIn('XtreamUrlBuilder.seriesInfoUrl', resolver)
+        self.assertIn('episode_xc_id', bridge)
+        self.assertIn('TraktSyncClient.submitEpisode', resolver)
+        self.assertIn('"show"', client)
+        self.assertIn('"episode"', client)
+        self.assertIn('first(info, null, "tmdb")', client)
+        self.assertIn('first(info, null, "imdb")', client)
+
+    def test_bundle_manifest_describes_runtime_sync_release(self):
+        source = PATCH_BUILD.read_text()
+        self.assertIn('movie and episode playback progress sync', source)
+        self.assertNotIn('diagnostic patch', source)
 
     def test_manager_descriptor_uses_local_datetime_without_timezone_suffix(self):
         descriptor = json.loads(PATCH_BUNDLE_DESCRIPTOR.read_text())

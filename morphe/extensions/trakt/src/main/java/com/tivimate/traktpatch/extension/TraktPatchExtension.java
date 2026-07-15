@@ -66,6 +66,8 @@ public final class TraktPatchExtension {
                         ? (Application) context.getApplicationContext() : null);
         if (application == null) return;
         initialized = true;
+        TraktSyncClient.initialize(application);
+        TraktProgressBridge.initialize(application);
         startWindowPolling();
         application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             @Override public void onActivityCreated(Activity activity, Bundle state) {}
@@ -205,7 +207,7 @@ public final class TraktPatchExtension {
             setPreferenceField(preferenceClass, preference, "ـˆ", connected
                     ? "Trakt (Connected)" : TITLE);
             setPreferenceField(preferenceClass, preference, "ᴵʼ", connected
-                    ? "Account connected — watched-progress sync coming next" : SUMMARY);
+                    ? "Account connected — watched-progress sync active" : SUMMARY);
             Method add = screen.getClass().getSuperclass().getMethod("ᵢʿ", preferenceClass);
             add.invoke(screen, preference);
             INSTALLED_SCREENS.add(screen);

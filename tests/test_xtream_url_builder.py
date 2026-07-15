@@ -48,6 +48,42 @@ class XtreamUrlBuilderTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing Xtream credentials", result.stderr)
 
+    def test_builds_vod_info_url_from_tivimate_xc_wrapper(self):
+        result = self.run_builder(
+            'xc:{"h":"https://provider.example:8443","u":"a@b","p":"p+q","o":"ts"}',
+            "6789",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout,
+            "https://provider.example:8443/player_api.php?username=a%40b&password=p%2Bq&action=get_vod_info&vod_id=6789",
+        )
+
+    def test_builds_series_info_url_from_tivimate_xc_wrapper(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            harness = tmp_path / "Harness.java"
+            harness.write_text(
+                "import com.tivimate.traktpatch.extension.XtreamUrlBuilder;\n"
+                "public final class Harness { public static void main(String[] a) {\n"
+                "System.out.print(XtreamUrlBuilder.seriesInfoUrl(a[0], a[1])); }}\n"
+            )
+            compiled = subprocess.run(
+                ["javac", "-d", str(tmp_path), str(SOURCE), str(harness)],
+                text=True, capture_output=True,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run(
+                ["java", "-cp", str(tmp_path), "Harness",
+                 'xc:{"h":"https://provider.example","u":"user","p":"pass","o":"ts"}', "42"],
+                text=True, capture_output=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                result.stdout,
+                "https://provider.example/player_api.php?username=user&password=pass&action=get_series_info&series_id=42",
+            )
+
     def test_rejects_non_numeric_vod_id(self):
         result = self.run_builder(
             "https://provider.example/get.php?username=user&password=pass",
@@ -55,6 +91,17 @@ class XtreamUrlBuilderTest(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid Xtream VOD id", result.stderr)
+
+    def test_supports_provider_original_http_transport_without_redirects(self):
+        result = self.run_builder(
+            "http://provider.example/get.php?username=user&password=pass",
+            "12",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.strip(),
+            "http://provider.example/player_api.php?username=user&password=pass&action=get_vod_info&vod_id=12",
+        )
 
     def test_diagnostic_shape_exposes_structure_but_not_host_or_credentials(self):
         with tempfile.TemporaryDirectory() as tmp:

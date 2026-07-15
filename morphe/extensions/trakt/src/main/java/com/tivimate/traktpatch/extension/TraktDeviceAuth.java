@@ -43,6 +43,8 @@ public final class TraktDeviceAuth {
             "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/code";
     private static final String DEVICE_TOKEN_URL =
             "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/token";
+    private static final String DEVICE_REFRESH_URL =
+            "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/refresh";
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ExecutorService NETWORK = Executors.newSingleThreadExecutor();
 
@@ -50,6 +52,42 @@ public final class TraktDeviceAuth {
 
     public static boolean isConnected(Context context) {
         return new TokenStore(context).hasValidToken();
+    }
+
+    static synchronized String accessToken(Context context) {
+        TokenStore store = new TokenStore(context);
+        if (store.storedTokenStillValid()) return store.accessToken();
+        return refreshAccessToken(store);
+    }
+
+    static void invalidateAccessToken(Context context) {
+        new TokenStore(context).clear();
+    }
+
+    private static String refreshAccessToken(TokenStore store) {
+        String refreshToken = store.refreshToken();
+        if (refreshToken == null) return null;
+        try {
+            JSONObject request = new JSONObject();
+            request.put("refresh_token", refreshToken);
+            JSONObject token = post(DEVICE_REFRESH_URL, request);
+            store.save(token);
+            return store.accessToken();
+        } catch (DeviceAuthorizationException error) {
+            if (error.status == 400 || error.status == 401 || error.status == 403) store.clear();
+            return null;
+        } catch (Exception ignored) {
+            // Keep refresh token for a later network attempt.
+            return null;
+        }
+    }
+
+    static boolean moviesEnabled(Context context) {
+        return new SyncSettings(context).moviesEnabled();
+    }
+
+    static boolean showsEnabled(Context context) {
+        return new SyncSettings(context).showsEnabled();
     }
 
     public static void open(final Context context) {
@@ -193,10 +231,12 @@ public final class TraktDeviceAuth {
     }
 
     private static final class DeviceAuthorizationException extends Exception {
+        final int status;
         final String code;
 
         DeviceAuthorizationException(int status, String code) {
             super("HTTP " + status + ": " + code);
+            this.status = status;
             this.code = code;
         }
     }
@@ -248,7 +288,7 @@ public final class TraktDeviceAuth {
             final SyncSettings settings = new SyncSettings(context);
             actions.removeAllViews();
             text.setText("Trakt connected\n\nSync scope: " + settings.label()
-                    + "\n\nPlayback sync is awaiting the next verified runtime hook.");
+                    + "\n\nPlayback progress sync is active.");
             addScope(context, settings, "movies", "Movies only");
             addScope(context, settings, "shows", "TV shows only");
             addScope(context, settings, "both", "Movies and TV shows");
@@ -273,7 +313,7 @@ public final class TraktDeviceAuth {
             button.setOnClickListener(v -> {
                 settings.set(scope);
                 text.setText("Trakt connected\n\nSync scope: " + settings.label()
-                        + "\n\nPlayback sync is awaiting the next verified runtime hook.");
+                        + "\n\nPlayback progress sync is active.");
                 Toast.makeText(context, "Trakt sync scope: " + settings.label(), Toast.LENGTH_SHORT).show();
             });
             actions.addView(button, new LinearLayout.LayoutParams(
@@ -285,7 +325,7 @@ public final class TraktDeviceAuth {
         void dismiss() { dialog.dismiss(); }
     }
 
-    /** Sync choice is local and will gate runtime events once their hook is proven. */
+    /** Sync choice gates movie and episode runtime events locally. */
     private static final class SyncSettings {
         private static final String PREFS = "tivimate_trakt_sync";
         private static final String SCOPE = "scope";
@@ -303,6 +343,14 @@ public final class TraktDeviceAuth {
             if ("movies".equals(scope)) return "Movies only";
             if ("shows".equals(scope)) return "TV shows only";
             return "Movies and TV shows";
+        }
+
+        boolean moviesEnabled() {
+            return !"shows".equals(preferences.getString(SCOPE, "both"));
+        }
+
+        boolean showsEnabled() {
+            return !"movies".equals(preferences.getString(SCOPE, "both"));
         }
     }
 
@@ -328,6 +376,39 @@ public final class TraktDeviceAuth {
                 // A partial/corrupt value cannot represent an authorized account.
                 preferences.edit().remove(TOKENS).apply();
                 return false;
+            }
+        }
+
+        boolean storedTokenStillValid() {
+            JSONObject stored = stored();
+            if (stored == null) return false;
+            long createdAt = stored.optLong("created_at", 0L);
+            long expiresIn = stored.optLong("expires_in", 0L);
+            long now = System.currentTimeMillis() / 1000L;
+            return createdAt > 0L && expiresIn > 60L && now < createdAt + expiresIn - 60L;
+        }
+
+        String accessToken() {
+            JSONObject stored = stored();
+            if (stored == null) return null;
+            String value = stored.optString("access_token", "");
+            return value.length() == 0 ? null : value;
+        }
+
+        String refreshToken() {
+            JSONObject stored = stored();
+            if (stored == null) return null;
+            String value = stored.optString("refresh_token", "");
+            return value.length() == 0 ? null : value;
+        }
+
+        private JSONObject stored() {
+            String encrypted = preferences.getString(TOKENS, null);
+            if (encrypted == null || encrypted.length() == 0) return null;
+            try {
+                return new JSONObject(decrypt(encrypted));
+            } catch (Exception ignored) {
+                return null;
             }
         }
 

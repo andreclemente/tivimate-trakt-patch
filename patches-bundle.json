@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-14T23:03:29",
-  "description": "TiviMate Trakt v0.1.36: safely diagnoses unsupported Xtream playlist URL shapes without exposing hosts or credentials. It performs no Trakt writes.",
-  "display_name": "TiviMate Trakt v0.1.36",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.36.mpp",
+  "created_at": "2026-07-14T23:28:13",
+  "description": "TiviMate Trakt v0.1.37: syncs movie and episode playback progress through stable Xtream metadata and the authenticated Worker.",
+  "display_name": "TiviMate Trakt v0.1.37",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.37.mpp",
   "signature_download_url": "",
-  "version": "0.1.36"
+  "version": "0.1.37"
 }
