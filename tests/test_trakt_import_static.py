@@ -178,7 +178,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         catalog = source[source.index("private static List<Candidate> catalog("):
                          source.index("private static JSONObject providerInfo(")]
         self.assertIn("TraktImportPolicy.shortlistIndex", source)
-        self.assertIn("ShortlistIndex targetIndex = shortlistIndex(targets)", catalog)
+        self.assertIn("ShortlistIndex targetIndex = shortlistIndex(targets,", catalog)
         self.assertIn("targetIndex.contains(title, year)", catalog)
         self.assertLess(catalog.index("ShortlistIndex targetIndex"),
                         catalog.index("while (true)"))
@@ -201,7 +201,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('new String[]{"tmdb_id", "tmdb"}', identity)
         self.assertIn('new String[]{"imdb_id", "imdb"}', identity)
         self.assertIn("tmdbValues.size() > 1 || imdbValues.size() > 1", identity)
-        self.assertIn("identity.conflict || !TraktImportPolicy.sameStableId", source)
+        self.assertIn("boolean stableMatch = !identity.conflict && TraktImportPolicy.sameStableId", source)
         self.assertNotIn("private static String stable(", source)
 
     def test_episode_insert_schema_uses_pragma_metadata_and_fails_closed(self):

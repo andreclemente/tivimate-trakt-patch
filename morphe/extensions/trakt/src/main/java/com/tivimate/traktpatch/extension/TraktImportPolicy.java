@@ -46,22 +46,31 @@ public final class TraktImportPolicy {
 
     public static boolean shortlist(String localTitle, int localYear,
                                     String remoteTitle, int remoteYear) {
-        // IPTV year labels are frequently wrong. Title only creates a provider shortlist;
-        // sameStableId remains the mandatory identity gate before any write.
+        if (!normalizedTitle(localTitle).equals(normalizedTitle(remoteTitle))) return false;
+        return localYear <= 0 || remoteYear <= 0 || localYear == remoteYear;
+    }
+
+    public static boolean shortlistSeries(String localTitle, int localYear,
+                                          String remoteTitle, int remoteYear) {
+        // Series year labels are frequently announcement/catalog years. Stable provider
+        // identity remains mandatory before any write.
         return normalizedTitle(localTitle).equals(normalizedTitle(remoteTitle));
     }
 
     /** Immutable normalized-title lookup with the same matching rules as {@link #shortlist}. */
     public static final class ShortlistIndex {
         private final Map<String, YearRule> titles;
+        private final boolean ignoreYear;
 
-        private ShortlistIndex(Map<String, YearRule> titles) {
+        private ShortlistIndex(Map<String, YearRule> titles, boolean ignoreYear) {
             this.titles = titles;
+            this.ignoreYear = ignoreYear;
         }
 
         public boolean contains(String localTitle, int localYear) {
             YearRule rule = titles.get(normalizedTitle(localTitle));
-            return rule != null;
+            return rule != null && (ignoreYear || localYear <= 0 || rule.wildcard
+                    || rule.years.contains(localYear));
         }
     }
 
@@ -77,6 +86,12 @@ public final class TraktImportPolicy {
 
     public static ShortlistIndex shortlistIndex(List<String> remoteTitles,
                                                 List<Integer> remoteYears) {
+        return shortlistIndex(remoteTitles, remoteYears, false);
+    }
+
+    public static ShortlistIndex shortlistIndex(List<String> remoteTitles,
+                                                List<Integer> remoteYears,
+                                                boolean ignoreYear) {
         if (remoteTitles.size() != remoteYears.size()) {
             throw new IllegalArgumentException("title/year size mismatch");
         }
@@ -103,7 +118,7 @@ public final class TraktImportPolicy {
             rules.put(title, new YearRule(wildcardTitles.contains(title),
                     years == null ? Collections.<Integer>emptySet() : years));
         }
-        return new ShortlistIndex(Collections.unmodifiableMap(rules));
+        return new ShortlistIndex(Collections.unmodifiableMap(rules), ignoreYear);
     }
 
     public static long parseClockDurationMs(String value) {

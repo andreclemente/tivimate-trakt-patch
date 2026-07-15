@@ -320,8 +320,7 @@ public final class TraktImportCoordinator {
         // bound aborts before any database write rather than producing a partial import.
         for (CategoryState state : states) for (TargetScan scan : state.scans) {
             for (Candidate candidate : scan.candidates) {
-                if (!TraktImportPolicy.shortlist(candidate.title, candidate.year,
-                        scan.target.title, scan.target.year) || submitted.contains(candidate)) continue;
+                if (!shortlisted(candidate, scan.target) || submitted.contains(candidate)) continue;
                 if (providerTasks.size() >= MAX_PROVIDER_TASKS) {
                     throw new IllegalStateException("provider candidate limit exceeded");
                 }
@@ -371,13 +370,18 @@ public final class TraktImportCoordinator {
         ProviderIdentity identity = providerIdentity(info, movie);
         for (CategoryState state : states) for (TargetScan scan : state.scans) {
             Candidate candidate = resolution.candidate;
+            boolean shortlisted = shortlisted(candidate, scan.target);
+            boolean stableMatch = !identity.conflict && TraktImportPolicy.sameStableId(
+                    scan.target.tmdb, scan.target.imdb, identity.tmdb, identity.imdb);
+            if (shortlisted && "episode".equals(scan.target.type) && !stableMatch) {
+                Log.i(TAG, "episode identity mismatch conflict=" + identity.conflict
+                        + " target_tmdb=" + scan.target.tmdb + " target_imdb=" + scan.target.imdb
+                        + " provider_tmdb=" + identity.tmdb + " provider_imdb=" + identity.imdb);
+            }
             if (("movie".equals(scan.target.type)) != resolution.movie
                     || (scan.match != null
                     && scan.match.candidate.catalogOrder <= candidate.catalogOrder)
-                    || !TraktImportPolicy.shortlist(candidate.title, candidate.year,
-                    scan.target.title, scan.target.year)
-                    || identity.conflict || !TraktImportPolicy.sameStableId(scan.target.tmdb,
-                    scan.target.imdb, identity.tmdb, identity.imdb)) continue;
+                    || !shortlisted || !stableMatch) continue;
             Match match = new Match();
             match.candidate = candidate;
             match.target = scan.target;
@@ -394,21 +398,31 @@ public final class TraktImportCoordinator {
         }
     }
 
-    private static TraktImportPolicy.ShortlistIndex shortlistIndex(List<Target> targets) {
+    private static boolean shortlisted(Candidate candidate, Target target) {
+        return "episode".equals(target.type)
+                ? TraktImportPolicy.shortlistSeries(candidate.title, candidate.year,
+                target.title, target.year)
+                : TraktImportPolicy.shortlist(candidate.title, candidate.year,
+                target.title, target.year);
+    }
+
+    private static TraktImportPolicy.ShortlistIndex shortlistIndex(List<Target> targets,
+                                                                    boolean series) {
         List<String> titles = new ArrayList<>(targets.size());
         List<Integer> years = new ArrayList<>(targets.size());
         for (Target target : targets) {
             titles.add(target.title);
             years.add(target.year);
         }
-        return TraktImportPolicy.shortlistIndex(titles, years);
+        return TraktImportPolicy.shortlistIndex(titles, years, series);
     }
 
     private static List<Candidate> catalog(SQLiteDatabase database, String table,
                                            List<Target> targets, int candidateLimit) {
         List<Candidate> result = new ArrayList<>();
         if (targets.isEmpty()) return result;
-        TraktImportPolicy.ShortlistIndex targetIndex = shortlistIndex(targets);
+        TraktImportPolicy.ShortlistIndex targetIndex = shortlistIndex(targets,
+                "series".equals(table));
         Set<String> columns = columns(database, table);
         String titleColumn = columns.contains("name") ? "name" : (columns.contains("title") ? "title" : null);
         if (titleColumn == null || !columns.contains("id") || !columns.contains("playlist_id") || !columns.contains("xc_id")) return result;
