@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-15T12:32:47",
-  "description": "TiviMate Trakt v0.1.52: normalize trailing IPTV year and country tags for series matching.",
-  "display_name": "TiviMate Trakt v0.1.52",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.52.mpp",
+  "created_at": "2026-07-15T12:48:22",
+  "description": "TiviMate Trakt v0.1.53: explicit episode stable-match and provider-resolution diagnostics.",
+  "display_name": "TiviMate Trakt v0.1.53",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-0.1.53.mpp",
   "signature_download_url": "",
-  "version": "0.1.52"
+  "version": "0.1.53"
 }

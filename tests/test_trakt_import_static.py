@@ -80,6 +80,8 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('"movie unchanged watched="', source)
         self.assertIn('"episode unchanged watched="', source)
         self.assertIn('"episode unresolved provider_id"', source)
+        self.assertIn('"episode matched season="', source)
+        self.assertIn('" provider_episode_valid="', source)
         self.assertNotIn('"movie unchanged id="', source)
         self.assertNotIn('"episode unchanged id="', source)
 

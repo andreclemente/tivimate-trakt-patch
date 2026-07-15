@@ -393,6 +393,10 @@ public final class TraktImportCoordinator {
                 match.episodeXcId = episode == null ? "" : episode.optString("id", "");
                 match.providerDurationMs = episode == null ? 0L
                         : durationMs(episode.optJSONObject("info"), episode);
+                Log.i(TAG, "episode matched season=" + scan.target.season
+                        + " episode=" + scan.target.episode + " provider_episode_valid="
+                        + match.episodeXcId.matches("[0-9]+")
+                        + " provider_duration=" + match.providerDurationMs);
             }
             scan.match = match;
         }
@@ -441,11 +445,6 @@ public final class TraktImportCoordinator {
                     String url = cursor.isNull(3) ? "" : cursor.getString(3);
                     if (!xc.matches("[0-9]+") || title.length() == 0 || url.length() == 0) continue;
                     int year = yearFromTitle(title);
-                    if ("series".equals(table)
-                            && TraktImportPolicy.normalizedTitle(title).contains("among")) {
-                        Log.i(TAG, "series catalog hint normalized="
-                                + TraktImportPolicy.normalizedTitle(title) + " year=" + year);
-                    }
                     if (!targetIndex.contains(title, year)) continue;
                     if (result.size() >= candidateLimit) {
                         throw new IllegalStateException("provider candidate limit exceeded");
