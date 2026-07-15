@@ -479,7 +479,13 @@ public final class TraktImportCoordinator {
             long duration = localDuration > 0 ? localDuration
                     : (providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
-            if (position == localPosition && duration == localDuration) return null;
+            if (position == localPosition && duration == localDuration) {
+                Log.i(TAG, "movie unchanged watched=" + target.watched
+                        + " local_position=" + localPosition + " local_duration=" + localDuration
+                        + " provider_duration=" + providerDurationMs
+                        + " trakt_duration=" + target.traktDurationMs + " merged_position=" + position);
+                return null;
+            }
             ContentValues values = new ContentValues();
             values.put("last_played_position_ms", position);
             if (duration > 0) values.put("duration_ms", duration);
@@ -493,7 +499,10 @@ public final class TraktImportCoordinator {
 
     private static String updateEpisode(SQLiteDatabase database, Candidate series, Target target,
                                         String episodeXcId, long providerDurationMs) {
-        if (!episodeXcId.matches("[0-9]+")) return null;
+        if (!episodeXcId.matches("[0-9]+")) {
+            Log.i(TAG, "episode unresolved provider_id");
+            return null;
+        }
         Cursor cursor = database.rawQuery("SELECT id,position_ms,duration_ms FROM episode_last_played_positions WHERE series_id=? AND episode_xc_id=? LIMIT 1",
                 new String[]{String.valueOf(series.id), episodeXcId});
         try {
@@ -504,7 +513,13 @@ public final class TraktImportCoordinator {
             long duration = localDuration > 0 ? localDuration
                     : (providerDurationMs > 0 ? providerDurationMs : target.traktDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
-            if (duration <= 0 || (exists && position == localPosition && duration == localDuration)) return null;
+            if (duration <= 0 || (exists && position == localPosition && duration == localDuration)) {
+                Log.i(TAG, "episode unchanged watched=" + target.watched + " exists=" + exists
+                        + " local_position=" + localPosition + " local_duration=" + localDuration
+                        + " provider_duration=" + providerDurationMs
+                        + " trakt_duration=" + target.traktDurationMs + " merged_position=" + position);
+                return null;
+            }
             ContentValues values = new ContentValues();
             values.put("position_ms", position);
             values.put("duration_ms", duration);

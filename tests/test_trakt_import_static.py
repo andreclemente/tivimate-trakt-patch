@@ -75,6 +75,14 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('token.optString("client_id", "")', source)
         self.assertNotIn('client_secret', source)
 
+    def test_unchanged_match_logs_numeric_state_without_media_identity(self):
+        source = COORDINATOR.read_text()
+        self.assertIn('"movie unchanged watched="', source)
+        self.assertIn('"episode unchanged watched="', source)
+        self.assertIn('"episode unresolved provider_id"', source)
+        self.assertNotIn('"movie unchanged id="', source)
+        self.assertNotIn('"episode unchanged id="', source)
+
     def test_direct_trakt_routes_request_full_runtime_metadata(self):
         source = COORDINATOR.read_text()
         self.assertIn('"/sync/watched/movies?extended=full"', source)
