@@ -382,10 +382,21 @@ public final class TraktImportCoordinator {
         }
     }
 
+    private static TraktImportPolicy.ShortlistIndex shortlistIndex(List<Target> targets) {
+        List<String> titles = new ArrayList<>(targets.size());
+        List<Integer> years = new ArrayList<>(targets.size());
+        for (Target target : targets) {
+            titles.add(target.title);
+            years.add(target.year);
+        }
+        return TraktImportPolicy.shortlistIndex(titles, years);
+    }
+
     private static List<Candidate> catalog(SQLiteDatabase database, String table,
                                            List<Target> targets, int candidateLimit) {
         List<Candidate> result = new ArrayList<>();
         if (targets.isEmpty()) return result;
+        TraktImportPolicy.ShortlistIndex targetIndex = shortlistIndex(targets);
         Set<String> columns = columns(database, table);
         String titleColumn = columns.contains("name") ? "name" : (columns.contains("title") ? "title" : null);
         if (titleColumn == null || !columns.contains("id") || !columns.contains("playlist_id") || !columns.contains("xc_id")) return result;
@@ -404,7 +415,7 @@ public final class TraktImportCoordinator {
                     String url = cursor.isNull(3) ? "" : cursor.getString(3);
                     if (!xc.matches("[0-9]+") || title.length() == 0 || url.length() == 0) continue;
                     int year = yearFromTitle(title);
-                    if (!shortlistedByAny(title, year, targets)) continue;
+                    if (!targetIndex.contains(title, year)) continue;
                     if (result.size() >= candidateLimit) {
                         throw new IllegalStateException("provider candidate limit exceeded");
                     }
@@ -420,13 +431,6 @@ public final class TraktImportCoordinator {
             } finally { cursor.close(); }
             if (rows < CATALOG_PAGE_SIZE) return result;
         }
-    }
-
-    private static boolean shortlistedByAny(String title, int year, List<Target> targets) {
-        for (Target target : targets) {
-            if (TraktImportPolicy.shortlist(title, year, target.title, target.year)) return true;
-        }
-        return false;
     }
 
     private static JSONObject providerInfo(Candidate candidate, boolean movie) throws Exception {

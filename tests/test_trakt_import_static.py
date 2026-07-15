@@ -159,7 +159,15 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("CATALOG_PAGE_SIZE = 500", source)
         self.assertIn("c.id>?", source)
         self.assertIn("ORDER BY c.id LIMIT", source)
-        self.assertIn("shortlistedByAny", source)
+        catalog = source[source.index("private static List<Candidate> catalog("):
+                         source.index("private static JSONObject providerInfo(")]
+        self.assertIn("TraktImportPolicy.shortlistIndex", source)
+        self.assertIn("ShortlistIndex targetIndex = shortlistIndex(targets)", catalog)
+        self.assertIn("targetIndex.contains(title, year)", catalog)
+        self.assertLess(catalog.index("ShortlistIndex targetIndex"),
+                        catalog.index("while (true)"))
+        self.assertNotIn("for (Target target : targets)", catalog)
+        self.assertNotIn("shortlistedByAny", catalog)
         self.assertIn("TargetScan", source)
         self.assertIn("MAX_PROVIDER_TASKS", source)
         self.assertNotIn("MAX_CATALOG", source)

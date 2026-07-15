@@ -1,7 +1,13 @@
 package com.tivimate.traktpatch.extension;
 
 import java.text.Normalizer;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /** Pure import matching and monotonic-merge rules, kept Android-independent for tests. */
 public final class TraktImportPolicy {
@@ -41,6 +47,61 @@ public final class TraktImportPolicy {
                                     String remoteTitle, int remoteYear) {
         if (!normalizedTitle(localTitle).equals(normalizedTitle(remoteTitle))) return false;
         return localYear <= 0 || remoteYear <= 0 || localYear == remoteYear;
+    }
+
+    /** Immutable title/year lookup with the same matching rules as {@link #shortlist}. */
+    public static final class ShortlistIndex {
+        private final Map<String, YearRule> titles;
+
+        private ShortlistIndex(Map<String, YearRule> titles) {
+            this.titles = titles;
+        }
+
+        public boolean contains(String localTitle, int localYear) {
+            YearRule rule = titles.get(normalizedTitle(localTitle));
+            return rule != null && (localYear <= 0 || rule.wildcard || rule.years.contains(localYear));
+        }
+    }
+
+    private static final class YearRule {
+        final boolean wildcard;
+        final Set<Integer> years;
+
+        YearRule(boolean wildcard, Set<Integer> years) {
+            this.wildcard = wildcard;
+            this.years = Collections.unmodifiableSet(new HashSet<>(years));
+        }
+    }
+
+    public static ShortlistIndex shortlistIndex(List<String> remoteTitles,
+                                                List<Integer> remoteYears) {
+        if (remoteTitles.size() != remoteYears.size()) {
+            throw new IllegalArgumentException("title/year size mismatch");
+        }
+        Map<String, Set<Integer>> knownYears = new HashMap<>();
+        Set<String> wildcardTitles = new HashSet<>();
+        for (int i = 0; i < remoteTitles.size(); i++) {
+            String title = normalizedTitle(remoteTitles.get(i));
+            int year = remoteYears.get(i);
+            if (year <= 0) wildcardTitles.add(title);
+            else {
+                Set<Integer> years = knownYears.get(title);
+                if (years == null) {
+                    years = new HashSet<>();
+                    knownYears.put(title, years);
+                }
+                years.add(year);
+            }
+        }
+        Map<String, YearRule> rules = new HashMap<>();
+        Set<String> allTitles = new HashSet<>(knownYears.keySet());
+        allTitles.addAll(wildcardTitles);
+        for (String title : allTitles) {
+            Set<Integer> years = knownYears.get(title);
+            rules.put(title, new YearRule(wildcardTitles.contains(title),
+                    years == null ? Collections.<Integer>emptySet() : years));
+        }
+        return new ShortlistIndex(Collections.unmodifiableMap(rules));
     }
 
     public static long parseClockDurationMs(String value) {
