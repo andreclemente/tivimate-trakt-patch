@@ -42,6 +42,7 @@ public final class TraktImportCoordinator {
     private static final int MAX_PROVIDER_TASKS = 4096;
     private static final int MAX_RESPONSE_CHARS = 2_000_000;
     private static final int MAX_TRAKT_PAGES = 100;
+    private static final int MAX_EPISODE_HISTORY_PAGES = 1;
     private static final ExecutorService IMPORTS = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
     private static final AtomicBoolean PENDING = new AtomicBoolean();
@@ -104,11 +105,6 @@ public final class TraktImportCoordinator {
         categories.add(new ArrayList<>(watchedMovies.values()));
         categories.add(new ArrayList<>(watchedShows.values()));
         int targetCount = active.size() + watchedMovies.size() + watchedShows.size();
-        for (Target target : watchedShows.values()) {
-            Log.i(TAG, "show target normalized=" + TraktImportPolicy.normalizedTitle(target.title)
-                    + " year=" + target.year + " season=" + target.season
-                    + " episode=" + target.episode);
-        }
         if (targetCount == 0) { Log.i(TAG, "import skipped targets=0"); return; }
 
         java.io.File file = context.getDatabasePath(DATABASE_NAME);
@@ -125,7 +121,9 @@ public final class TraktImportCoordinator {
     private static JSONArray fetch(String route, String token, String clientId, Context context) throws Exception {
         JSONArray result = new JSONArray();
         int pageCount = 1;
-        for (int page = 1; page <= MAX_TRAKT_PAGES; page++) {
+        int pageLimit = route.startsWith("/sync/history/episodes")
+                ? MAX_EPISODE_HISTORY_PAGES : MAX_TRAKT_PAGES;
+        for (int page = 1; page <= pageLimit; page++) {
             boolean loaded = false;
             for (int attempt = 0; attempt < 2; attempt++) {
                 HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route
@@ -167,7 +165,7 @@ public final class TraktImportCoordinator {
                 } finally { connection.disconnect(); }
             }
             if (!loaded) return null;
-            if (page >= pageCount) return result;
+            if (page >= pageCount || page >= pageLimit) return result;
         }
         throw new IllegalStateException("Trakt pagination limit exceeded");
     }
