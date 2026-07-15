@@ -21,7 +21,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('setRequestProperty("trakt-api-key", clientId)', source)
         self.assertIn('setRequestProperty("trakt-api-version", "2")', source)
         self.assertIn("TraktDeviceAuth.clientId(context)", source)
-        self.assertIn("MAX_PROVIDER_REQUESTS = 64", source)
+        self.assertIn("MAX_PROVIDER_TASKS = 4096", source)
         self.assertIn("MAX_RESPONSE_CHARS = 2_000_000", source)
         self.assertIn("Executors.newSingleThreadExecutor()", source)
 
@@ -78,7 +78,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
     def test_title_is_only_a_shortlist_and_provider_stable_id_confirms(self):
         source = COORDINATOR.read_text()
         self.assertIn("TraktImportPolicy.shortlist", source)
-        self.assertIn("providerInfo(candidate", source)
+        self.assertIn("providerInfo(task.candidate", source)
         self.assertIn("TraktImportPolicy.sameStableId", source)
         self.assertIn("XtreamUrlBuilder.vodInfoUrl", source)
         self.assertIn("XtreamUrlBuilder.seriesInfoUrl", source)
@@ -117,20 +117,42 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("while (PENDING.getAndSet(false))", source)
         self.assertIn("if (PENDING.get()) requestImport()", source)
 
-    def test_playback_and_watched_categories_have_fair_bounded_budgets(self):
+    def test_provider_metadata_resolution_is_parallel_batched_complete_and_deterministic(self):
         source = COORDINATOR.read_text()
         self.assertLess(source.index("addPlayback(playback"), source.index("addWatchedMovies(movies"))
-        self.assertIn("PLAYBACK_REQUESTS = 24", source)
-        self.assertIn("MOVIE_REQUESTS = 20", source)
-        self.assertIn("SHOW_REQUESTS = MAX_PROVIDER_REQUESTS", source)
-        self.assertIn("while (hasPending(states))", source)
-        self.assertIn("matchCategoryBatch(states.get(0), PLAYBACK_REQUESTS", source)
-        self.assertIn("matchCategoryBatch(states.get(1), MOVIE_REQUESTS", source)
-        self.assertIn("matchCategoryBatch(states.get(2), SHOW_REQUESTS", source)
-        self.assertIn("scan.candidateIndex++", source)
-        self.assertIn("state.scans.remove(state.next)", source)
-        self.assertNotIn("CANDIDATE_CURSORS", source)
-        self.assertNotIn("PLAYBACK_CURSOR", source)
+        self.assertIn("PROVIDER_THREADS = 8", source)
+        self.assertIn("PROVIDER_BATCH_SIZE = 32", source)
+        self.assertIn("MAX_PROVIDER_TASKS = 4096", source)
+        self.assertIn("Executors.newFixedThreadPool(PROVIDER_THREADS)", source)
+        self.assertIn("for (int start = 0; start < providerTasks.size(); start += PROVIDER_BATCH_SIZE)", source)
+        self.assertIn("Math.min(start + PROVIDER_BATCH_SIZE, providerTasks.size())", source)
+        self.assertIn("executor.invokeAll(batch)", source)
+        self.assertIn("for (Future<Resolution> future : futures)", source)
+        self.assertIn('throw new IllegalStateException("provider candidate limit exceeded")', source)
+        self.assertIn("TraktImportPolicy.shortlist(candidate.title, candidate.year,", source)
+        self.assertIn("resolveProviderCandidates(states, matches)", source)
+        self.assertIn("executor.shutdownNow()", source)
+        self.assertNotIn("executor.invokeAll(tasks)", source)
+        self.assertNotIn("Map<Candidate, JSONObject> providers", source)
+        match = source[source.index("private static final class Match"):
+                       source.index("private static final class ProviderIdentity")]
+        self.assertNotIn("JSONObject", match)
+        self.assertIn("providerDurationMs", match)
+        self.assertNotIn("matchCategoryBatch", source)
+
+    def test_provider_failures_propagate_before_database_writes(self):
+        source = COORDINATOR.read_text()
+        worker_start = source.index("new Callable<Resolution>()")
+        worker_end = source.index("});", worker_start)
+        worker = source[worker_start:worker_end]
+        self.assertIn("return new Resolution(task.candidate, task.movie,", worker)
+        self.assertIn("providerInfo(task.candidate, task.movie));", worker)
+        self.assertNotIn("catch", worker)
+        self.assertNotIn("database", worker)
+        self.assertIn('throw new IOException("provider HTTP " + status)', source)
+        self.assertNotIn("if (status < 200 || status >= 300) return null", source)
+        self.assertLess(source.index("resolveProviderCandidates(states, matches)"),
+                        source.index("TraktProgressBridge.beginImportWrite()"))
 
     def test_catalog_is_paged_and_target_driven_not_arbitrarily_truncated(self):
         source = COORDINATOR.read_text()
@@ -139,14 +161,14 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("ORDER BY c.id LIMIT", source)
         self.assertIn("shortlistedByAny", source)
         self.assertIn("TargetScan", source)
-        self.assertIn("candidateIndex", source)
+        self.assertIn("MAX_PROVIDER_TASKS", source)
         self.assertNotIn("MAX_CATALOG", source)
 
     def test_partial_playback_requires_native_duration_but_watched_may_fallback(self):
         source = COORDINATOR.read_text()
         self.assertEqual(source.count("if (!target.watched && localDuration <= 0L) return null;"), 2)
         self.assertEqual(source.count(
-            "long duration = localDuration > 0 ? localDuration : durationMs("), 2)
+            "long duration = localDuration > 0 ? localDuration : providerDurationMs;"), 2)
 
     def test_provider_identity_collects_every_valid_value_and_rejects_conflicts(self):
         source = COORDINATOR.read_text()
@@ -155,7 +177,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('new String[]{"tmdb_id", "tmdb"}', identity)
         self.assertIn('new String[]{"imdb_id", "imdb"}', identity)
         self.assertIn("tmdbValues.size() > 1 || imdbValues.size() > 1", identity)
-        self.assertIn("!identity.conflict", source)
+        self.assertIn("identity.conflict || !TraktImportPolicy.sameStableId", source)
         self.assertNotIn("private static String stable(", source)
 
     def test_episode_insert_schema_uses_pragma_metadata_and_fails_closed(self):

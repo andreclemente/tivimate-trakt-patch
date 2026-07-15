@@ -9,6 +9,7 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -17,25 +18,27 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Bounded, fail-closed Trakt -> TiviMate importer. All network and DB work is serialized off callers. */
+/** Bounded, fail-closed Trakt -> TiviMate importer. Import orchestration and DB writes are serialized; provider metadata requests use a bounded pool. */
 public final class TraktImportCoordinator {
     private static final String TAG = "TiviMateTraktImport";
     private static final String TRAKT_API = "https://api.trakt.tv";
     private static final String DATABASE_NAME = "TvPlayer.db";
     private static final String[] ROUTES = {"/sync/watched/movies", "/sync/watched/shows", "/sync/playback"};
     private static final int CATALOG_PAGE_SIZE = 500;
-    private static final int MAX_PROVIDER_REQUESTS = 64;
-    private static final int PLAYBACK_REQUESTS = 24;
-    private static final int MOVIE_REQUESTS = 20;
-    private static final int SHOW_REQUESTS = MAX_PROVIDER_REQUESTS - PLAYBACK_REQUESTS - MOVIE_REQUESTS;
+    private static final int PROVIDER_THREADS = 8;
+    private static final int PROVIDER_BATCH_SIZE = 32;
+    private static final int MAX_PROVIDER_TASKS = 4096;
     private static final int MAX_RESPONSE_CHARS = 2_000_000;
     private static final ExecutorService IMPORTS = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
@@ -238,27 +241,15 @@ public final class TraktImportCoordinator {
         for (List<Target> category : categories) for (Target target : category) {
             ("movie".equals(target.type) ? movieTargets : showTargets).add(target);
         }
-        List<Candidate> movies = catalog(database, "movies", movieTargets);
-        List<Candidate> series = catalog(database, "series", showTargets);
+        List<Candidate> movies = catalog(database, "movies", movieTargets, MAX_PROVIDER_TASKS);
+        List<Candidate> series = catalog(database, "series", showTargets,
+                MAX_PROVIDER_TASKS - movies.size());
         List<Match> matches = new ArrayList<>();
         List<CategoryState> states = new ArrayList<>();
         states.add(new CategoryState(categories.get(0), movies, series));
         states.add(new CategoryState(categories.get(1), movies, series));
         states.add(new CategoryState(categories.get(2), movies, series));
-        int requests = 0;
-        // A requested import owns its complete finite scan. Each round is bounded and
-        // gives every category its reserved share; partially scanned targets remain in
-        // CategoryState for the next round, while matched/exhausted targets are removed.
-        while (hasPending(states)) {
-            int roundRequests = 0;
-            roundRequests += matchCategoryBatch(states.get(0), PLAYBACK_REQUESTS, matches);
-            roundRequests += matchCategoryBatch(states.get(1), MOVIE_REQUESTS, matches);
-            roundRequests += matchCategoryBatch(states.get(2), SHOW_REQUESTS, matches);
-            requests += roundRequests;
-            if (roundRequests == 0 && hasPending(states)) {
-                throw new IllegalStateException("provider scan made no progress");
-            }
-        }
+        int requests = resolveProviderCandidates(states, matches);
 
         int changed = 0;
         if (matches.isEmpty()) {
@@ -274,17 +265,16 @@ public final class TraktImportCoordinator {
             database.beginTransaction();
             transactionStarted = true;
             for (Match match : matches) {
-                JSONObject info = match.provider.optJSONObject("info");
-                JSONObject movie = match.provider.optJSONObject("movie_data");
                 if ("movie".equals(match.target.type)) {
-                    String expected = updateMovie(database, match.candidate, match.target, info, movie);
+                    String expected = updateMovie(database, match.candidate, match.target,
+                            match.providerDurationMs);
                     if (expected != null) {
                         changed++;
                         expectedMovies.add(expected);
                     }
                 } else {
                     String expected = updateEpisode(database, match.candidate, match.target,
-                            match.provider);
+                            match.episodeXcId, match.providerDurationMs);
                     if (expected != null) {
                         changed++;
                         expectedEpisodes.add(expected);
@@ -309,59 +299,91 @@ public final class TraktImportCoordinator {
         Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests + " changed=" + changed);
     }
 
-    private static boolean hasPending(List<CategoryState> states) {
-        for (CategoryState state : states) if (!state.scans.isEmpty()) return true;
-        return false;
+    private static int resolveProviderCandidates(List<CategoryState> states,
+                                                 List<Match> matches) throws Exception {
+        final List<ProviderTask> providerTasks = new ArrayList<>();
+        Set<Candidate> submitted = java.util.Collections.newSetFromMap(
+                new IdentityHashMap<Candidate, Boolean>());
+        // Build the complete finite shortlist before opening the pool. Exceeding the
+        // bound aborts before any database write rather than producing a partial import.
+        for (CategoryState state : states) for (TargetScan scan : state.scans) {
+            for (Candidate candidate : scan.candidates) {
+                if (!TraktImportPolicy.shortlist(candidate.title, candidate.year,
+                        scan.target.title, scan.target.year) || submitted.contains(candidate)) continue;
+                if (providerTasks.size() >= MAX_PROVIDER_TASKS) {
+                    throw new IllegalStateException("provider candidate limit exceeded");
+                }
+                submitted.add(candidate);
+                providerTasks.add(new ProviderTask(candidate, "movie".equals(scan.target.type)));
+            }
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(PROVIDER_THREADS);
+        try {
+            for (int start = 0; start < providerTasks.size(); start += PROVIDER_BATCH_SIZE) {
+                int end = Math.min(start + PROVIDER_BATCH_SIZE, providerTasks.size());
+                List<Callable<Resolution>> batch = new ArrayList<>(end - start);
+                for (int index = start; index < end; index++) {
+                    final ProviderTask task = providerTasks.get(index);
+                    batch.add(new Callable<Resolution>() {
+                        @Override public Resolution call() throws Exception {
+                            return new Resolution(task.candidate, task.movie,
+                                    providerInfo(task.candidate, task.movie));
+                        }
+                    });
+                }
+                // invokeAll and Future iteration preserve task-list order regardless of
+                // completion order. Any network, HTTP, or JSON failure reaches get() and
+                // aborts before beginImportWrite/database.beginTransaction.
+                List<Future<Resolution>> futures = executor.invokeAll(batch);
+                for (Future<Resolution> future : futures) {
+                    applyResolution(states, future.get());
+                }
+                // batch, futures, and their response JSON become unreachable here.
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        // Category and target insertion order determines write order. Each scan retains
+        // only compact fields from its lowest catalog-order stable-ID match.
+        for (CategoryState state : states) for (TargetScan scan : state.scans) {
+            if (scan.match != null) matches.add(scan.match);
+        }
+        return providerTasks.size();
     }
 
-    private static int matchCategoryBatch(CategoryState state, int requestLimit,
-                                          List<Match> matches) {
-        int requests = 0;
-        while (!state.scans.isEmpty() && requests < requestLimit) {
-            if (state.next >= state.scans.size()) state.next = 0;
-            TargetScan scan = state.scans.get(state.next);
-            boolean remove = false;
-            boolean requested = false;
-            while (scan.candidateIndex < scan.candidates.size()) {
-                Candidate candidate = scan.candidates.get(scan.candidateIndex++);
-                if (!TraktImportPolicy.shortlist(candidate.title, candidate.year,
-                        scan.target.title, scan.target.year)) continue;
-                JSONObject provider;
-                try { provider = providerInfo(candidate, "movie".equals(scan.target.type)); requests++; }
-                catch (Exception ignored) {
-                    requests++;
-                    provider = null;
-                }
-                requested = true;
-                if (provider != null) {
-                    ProviderIdentity identity = providerIdentity(
-                            provider.optJSONObject("info"), provider.optJSONObject("movie_data"));
-                    if (!identity.conflict && TraktImportPolicy.sameStableId(scan.target.tmdb,
-                            scan.target.imdb, identity.tmdb, identity.imdb)) {
-                        Match match = new Match();
-                        match.candidate = candidate;
-                        match.target = scan.target;
-                        match.provider = provider;
-                        matches.add(match);
-                        remove = true;
-                    }
-                }
-                // One provider request per target turn keeps targets fair. The next
-                // candidate index is retained if the batch ends here.
-                break;
+    private static void applyResolution(List<CategoryState> states, Resolution resolution) {
+        JSONObject info = resolution.provider.optJSONObject("info");
+        JSONObject movie = resolution.provider.optJSONObject("movie_data");
+        ProviderIdentity identity = providerIdentity(info, movie);
+        for (CategoryState state : states) for (TargetScan scan : state.scans) {
+            Candidate candidate = resolution.candidate;
+            if (("movie".equals(scan.target.type)) != resolution.movie
+                    || (scan.match != null
+                    && scan.match.candidate.catalogOrder <= candidate.catalogOrder)
+                    || !TraktImportPolicy.shortlist(candidate.title, candidate.year,
+                    scan.target.title, scan.target.year)
+                    || identity.conflict || !TraktImportPolicy.sameStableId(scan.target.tmdb,
+                    scan.target.imdb, identity.tmdb, identity.imdb)) continue;
+            Match match = new Match();
+            match.candidate = candidate;
+            match.target = scan.target;
+            if (resolution.movie) {
+                match.providerDurationMs = durationMs(info, movie);
+            } else {
+                JSONObject episode = findEpisode(resolution.provider.optJSONObject("episodes"),
+                        scan.target.season, scan.target.episode);
+                match.episodeXcId = episode == null ? "" : episode.optString("id", "");
+                match.providerDurationMs = episode == null ? 0L
+                        : durationMs(episode.optJSONObject("info"), episode);
             }
-            if (scan.candidateIndex >= scan.candidates.size()) remove = true;
-            if (remove) state.scans.remove(state.next);
-            else state.next = (state.next + 1) % state.scans.size();
-            // A target with no shortlisted candidates was exhausted without a request;
-            // continue removing such targets even at the end of a batch.
-            if (!requested && !remove) throw new IllegalStateException("target scan stalled");
+            scan.match = match;
         }
-        return requests;
     }
 
     private static List<Candidate> catalog(SQLiteDatabase database, String table,
-                                           List<Target> targets) {
+                                           List<Target> targets, int candidateLimit) {
         List<Candidate> result = new ArrayList<>();
         if (targets.isEmpty()) return result;
         Set<String> columns = columns(database, table);
@@ -383,12 +405,16 @@ public final class TraktImportCoordinator {
                     if (!xc.matches("[0-9]+") || title.length() == 0 || url.length() == 0) continue;
                     int year = yearFromTitle(title);
                     if (!shortlistedByAny(title, year, targets)) continue;
+                    if (result.size() >= candidateLimit) {
+                        throw new IllegalStateException("provider candidate limit exceeded");
+                    }
                     Candidate candidate = new Candidate();
                     candidate.id = afterId;
                     candidate.xcId = xc;
                     candidate.title = title;
                     candidate.year = year;
                     candidate.playlistUrl = url;
+                    candidate.catalogOrder = result.size();
                     result.add(candidate);
                 }
             } finally { cursor.close(); }
@@ -415,13 +441,15 @@ public final class TraktImportCoordinator {
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
             int status = connection.getResponseCode();
-            if (status < 200 || status >= 300) return null;
+            if (status < 200 || status >= 300) {
+                throw new IOException("provider HTTP " + status);
+            }
             return new JSONObject(readText(connection.getInputStream()));
         } finally { connection.disconnect(); }
     }
 
     private static String updateMovie(SQLiteDatabase database, Candidate candidate, Target target,
-                                      JSONObject info, JSONObject movie) {
+                                      long providerDurationMs) {
         Cursor cursor = database.rawQuery("SELECT playlist_id,xc_id,last_played_position_ms,duration_ms FROM movies WHERE id=? LIMIT 1",
                 new String[]{String.valueOf(candidate.id)});
         try {
@@ -432,7 +460,7 @@ public final class TraktImportCoordinator {
             long localDuration = cursor.isNull(3) ? 0L : cursor.getLong(3);
             String localDurationValue = cursor.isNull(3) ? "null" : cursor.getString(3);
             if (!target.watched && localDuration <= 0L) return null;
-            long duration = localDuration > 0 ? localDuration : durationMs(info, movie);
+            long duration = localDuration > 0 ? localDuration : providerDurationMs;
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
             if (position == localPosition && duration == localDuration) return null;
             ContentValues values = new ContentValues();
@@ -447,10 +475,7 @@ public final class TraktImportCoordinator {
     }
 
     private static String updateEpisode(SQLiteDatabase database, Candidate series, Target target,
-                                        JSONObject provider) {
-        JSONObject episode = findEpisode(provider.optJSONObject("episodes"), target.season, target.episode);
-        if (episode == null) return null;
-        String episodeXcId = episode.optString("id", "");
+                                        String episodeXcId, long providerDurationMs) {
         if (!episodeXcId.matches("[0-9]+")) return null;
         Cursor cursor = database.rawQuery("SELECT id,position_ms,duration_ms FROM episode_last_played_positions WHERE series_id=? AND episode_xc_id=? LIMIT 1",
                 new String[]{String.valueOf(series.id), episodeXcId});
@@ -459,7 +484,7 @@ public final class TraktImportCoordinator {
             long localPosition = exists && !cursor.isNull(1) ? cursor.getLong(1) : 0L;
             long localDuration = exists && !cursor.isNull(2) ? cursor.getLong(2) : 0L;
             if (!target.watched && localDuration <= 0L) return null;
-            long duration = localDuration > 0 ? localDuration : durationMs(episode.optJSONObject("info"), episode);
+            long duration = localDuration > 0 ? localDuration : providerDurationMs;
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
             if (duration <= 0 || (exists && position == localPosition && duration == localDuration)) return null;
             ContentValues values = new ContentValues();
@@ -598,7 +623,8 @@ public final class TraktImportCoordinator {
     private static final class Match {
         Candidate candidate;
         Target target;
-        JSONObject provider;
+        String episodeXcId = "";
+        long providerDurationMs;
     }
 
     private static final class ProviderIdentity {
@@ -609,7 +635,7 @@ public final class TraktImportCoordinator {
     private static final class TargetScan {
         final Target target;
         final List<Candidate> candidates;
-        int candidateIndex;
+        Match match;
 
         TargetScan(Target target, List<Candidate> movies, List<Candidate> series) {
             this.target = target;
@@ -619,16 +645,35 @@ public final class TraktImportCoordinator {
 
     private static final class CategoryState {
         final List<TargetScan> scans = new ArrayList<>();
-        int next;
 
         CategoryState(List<Target> targets, List<Candidate> movies, List<Candidate> series) {
             for (Target target : targets) scans.add(new TargetScan(target, movies, series));
         }
     }
 
+    private static final class ProviderTask {
+        final Candidate candidate;
+        final boolean movie;
+        ProviderTask(Candidate candidate, boolean movie) {
+            this.candidate = candidate;
+            this.movie = movie;
+        }
+    }
+
+    private static final class Resolution {
+        final Candidate candidate;
+        final JSONObject provider;
+        final boolean movie;
+        Resolution(Candidate candidate, boolean movie, JSONObject provider) {
+            this.candidate = candidate;
+            this.provider = provider;
+            this.movie = movie;
+        }
+    }
+
     private static final class Candidate {
         long id;
         String xcId, title, playlistUrl;
-        int year;
+        int year, catalogOrder;
     }
 }
