@@ -174,7 +174,7 @@ public final class TraktDeviceAuth {
                     request.put("code", deviceCode);
                     final JSONObject token = post(DEVICE_TOKEN_URL, request);
                     new TokenStore(context).save(token);
-                    TraktImportCoordinator.requestImport();
+                    TraktImportCoordinator.initialize(context);
                     MAIN.post(new Runnable() {
                         @Override public void run() {
                             if (dialog.isShowing()) dialog.dismiss();

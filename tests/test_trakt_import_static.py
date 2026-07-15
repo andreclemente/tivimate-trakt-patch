@@ -167,13 +167,28 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
 
     def test_import_is_wired_at_connected_startup_and_authorization_success(self):
         self.assertIn("TraktImportCoordinator.initialize(application)", EXTENSION.read_text())
-        self.assertIn("TraktImportCoordinator.requestImport()", AUTH.read_text())
+        source = AUTH.read_text()
+        save_index = source.index("new TokenStore(context).save(token);")
+        initialize_index = source.index("TraktImportCoordinator.initialize(context);", save_index)
+        self.assertGreater(initialize_index, save_index)
 
     def test_connected_scope_change_requests_import(self):
         source = AUTH.read_text()
         start = source.index("settings.set(scope)")
         scope_handler = source[start:source.index("actions.addView(button", start)]
         self.assertIn("TraktImportCoordinator.requestImport()", scope_handler)
+
+    def test_import_logs_safe_milestones_without_payloads_or_credentials(self):
+        source = COORDINATOR.read_text()
+        for marker in (
+            '"import start"',
+            '"import skipped token"',
+            '"import skipped client"',
+            '"import fetched movies="',
+            '"import skipped targets=0"',
+            '"import skipped database_missing"',
+        ):
+            self.assertIn(marker, source)
 
     def test_logs_do_not_include_secrets_urls_or_raw_rows(self):
         source = COORDINATOR.read_text()

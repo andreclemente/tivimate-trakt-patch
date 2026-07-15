@@ -73,14 +73,17 @@ public final class TraktImportCoordinator {
     }
 
     private static void importNow(Context context) throws Exception {
+        Log.i(TAG, "import start");
         String token = TraktDeviceAuth.accessToken(context);
-        if (token == null) return;
+        if (token == null) { Log.i(TAG, "import skipped token"); return; }
         String clientId = TraktDeviceAuth.clientId(context);
-        if (clientId == null) return;
+        if (clientId == null) { Log.i(TAG, "import skipped client"); return; }
         JSONArray movies = fetch(ROUTES[0], token, clientId, context);
         JSONArray shows = fetch(ROUTES[1], token, clientId, context);
         JSONArray playback = fetch(ROUTES[2], token, clientId, context);
         if (movies == null || shows == null || playback == null) return;
+        Log.i(TAG, "import fetched movies=" + movies.length() + " shows=" + shows.length()
+                + " playback=" + playback.length());
         LinkedHashMap<String, Target> active = new LinkedHashMap<>();
         LinkedHashMap<String, Target> watchedMovies = new LinkedHashMap<>();
         LinkedHashMap<String, Target> watchedShows = new LinkedHashMap<>();
@@ -96,10 +99,10 @@ public final class TraktImportCoordinator {
         categories.add(new ArrayList<>(watchedMovies.values()));
         categories.add(new ArrayList<>(watchedShows.values()));
         int targetCount = active.size() + watchedMovies.size() + watchedShows.size();
-        if (targetCount == 0) return;
+        if (targetCount == 0) { Log.i(TAG, "import skipped targets=0"); return; }
 
         java.io.File file = context.getDatabasePath(DATABASE_NAME);
-        if (!file.isFile()) return;
+        if (!file.isFile()) { Log.i(TAG, "import skipped database_missing"); return; }
         SQLiteDatabase database = null;
         try {
             database = SQLiteDatabase.openDatabase(file.getAbsolutePath(), null, SQLiteDatabase.OPEN_READWRITE);
