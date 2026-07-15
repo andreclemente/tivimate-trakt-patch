@@ -35,7 +35,7 @@ public final class TraktImportCoordinator {
     private static final String TRAKT_API = "https://api.trakt.tv";
     private static final String DATABASE_NAME = "TvPlayer.db";
     private static final String[] ROUTES = {"/sync/watched/movies?extended=full",
-            "/sync/watched/shows?extended=full", "/sync/playback?extended=full"};
+            "/sync/history/episodes?extended=full", "/sync/playback?extended=full"};
     private static final int CATALOG_PAGE_SIZE = 500;
     private static final int PROVIDER_THREADS = 8;
     private static final int PROVIDER_BATCH_SIZE = 32;
@@ -185,14 +185,21 @@ public final class TraktImportCoordinator {
         for (int i = 0; i < values.length(); i++) {
             JSONObject wrapper = values.optJSONObject(i);
             JSONObject show = wrapper == null ? null : wrapper.optJSONObject("show");
-            JSONArray seasons = wrapper == null ? null : wrapper.optJSONArray("seasons");
-            if (show != null && "among us".equals(
-                    TraktImportPolicy.normalizedTitle(show.optString("title", "")))) {
-                JSONObject ids = show.optJSONObject("ids");
-                Log.i(TAG, "show source among_us seasons=" + (seasons == null ? -1 : seasons.length())
-                        + " tmdb_valid=" + !(ids == null ? "" : TraktImportPolicy.stableTmdb(ids.opt("tmdb"))).isEmpty()
-                        + " imdb_valid=" + !(ids == null ? "" : TraktImportPolicy.stableImdb(ids.opt("imdb"))).isEmpty());
+            JSONObject flatEpisode = wrapper == null ? null : wrapper.optJSONObject("episode");
+            if (show != null && flatEpisode != null) {
+                Target target = mediaTarget("episode", show, true, 100.0d);
+                if (target != null) {
+                    target.season = flatEpisode.optInt("season", 0);
+                    target.episode = flatEpisode.optInt("number", 0);
+                    long runtimeMinutes = flatEpisode.optLong("runtime", 0L);
+                    if (runtimeMinutes > 0L && runtimeMinutes < 1440L) {
+                        target.traktDurationMs = runtimeMinutes * 60_000L;
+                    }
+                    if (target.season > 0 && target.episode > 0) put(targets, target);
+                }
+                continue;
             }
+            JSONArray seasons = wrapper == null ? null : wrapper.optJSONArray("seasons");
             if (show == null || seasons == null) continue;
             for (int s = 0; s < seasons.length(); s++) {
                 JSONObject season = seasons.optJSONObject(s);

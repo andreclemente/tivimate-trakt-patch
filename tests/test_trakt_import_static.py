@@ -14,7 +14,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         source = COORDINATOR.read_text()
         self.assertIn('TRAKT_API = "https://api.trakt.tv"', source)
         self.assertNotIn("workers.dev", source)
-        for route in ("/sync/watched/movies", "/sync/watched/shows", "/sync/playback"):
+        for route in ("/sync/watched/movies", "/sync/history/episodes", "/sync/playback"):
             self.assertIn(route, source)
         self.assertIn('setRequestMethod("GET")', source)
         self.assertIn('"Bearer " + token', source)
@@ -88,7 +88,8 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
     def test_direct_trakt_routes_request_full_runtime_metadata(self):
         source = COORDINATOR.read_text()
         self.assertIn('"/sync/watched/movies?extended=full"', source)
-        self.assertIn('"/sync/watched/shows?extended=full"', source)
+        self.assertIn('"/sync/history/episodes?extended=full"', source)
+        self.assertIn('wrapper.optJSONObject("episode")', source)
         self.assertIn('"/sync/playback?extended=full"', source)
         self.assertIn('"&limit=100&page="', source)
         self.assertIn('"X-Pagination-Page-Count"', source)
