@@ -41,6 +41,7 @@ public final class TraktImportCoordinator {
     private static final int PROVIDER_BATCH_SIZE = 32;
     private static final int MAX_PROVIDER_TASKS = 4096;
     private static final int MAX_RESPONSE_CHARS = 2_000_000;
+    private static final int MAX_TRAKT_PAGES = 100;
     private static final ExecutorService IMPORTS = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
     private static final AtomicBoolean PENDING = new AtomicBoolean();
@@ -122,34 +123,53 @@ public final class TraktImportCoordinator {
     }
 
     private static JSONArray fetch(String route, String token, String clientId, Context context) throws Exception {
-        for (int attempt = 0; attempt < 2; attempt++) {
-            HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route).openConnection();
-            try {
-                connection.setInstanceFollowRedirects(false);
-                connection.setRequestMethod("GET");
-                connection.setConnectTimeout(15_000);
-                connection.setReadTimeout(20_000);
-                connection.setRequestProperty("Authorization", "Bearer " + token);
-                connection.setRequestProperty("trakt-api-key", clientId);
-                connection.setRequestProperty("trakt-api-version", "2");
-                connection.setRequestProperty("Accept", "application/json");
-                connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
-                int status = connection.getResponseCode();
-                if (status == 401 || status == 403) {
-                    TraktDeviceAuth.invalidateAccessToken(context);
-                    Log.w(TAG, "import authorization rejected");
-                    return null;
-                }
-                if (attempt == 0 && (status == 429 || status >= 500)) { Thread.sleep(1000L); continue; }
-                if (status < 200 || status >= 300) {
-                    Log.w(TAG, "import route rejected status=" + status);
-                    return null;
-                }
-                String text = readText(connection.getInputStream());
-                return new JSONArray(text);
-            } finally { connection.disconnect(); }
+        JSONArray result = new JSONArray();
+        int pageCount = 1;
+        for (int page = 1; page <= MAX_TRAKT_PAGES; page++) {
+            boolean loaded = false;
+            for (int attempt = 0; attempt < 2; attempt++) {
+                HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route
+                        + "&limit=100&page=" + page).openConnection();
+                try {
+                    connection.setInstanceFollowRedirects(false);
+                    connection.setRequestMethod("GET");
+                    connection.setConnectTimeout(15_000);
+                    connection.setReadTimeout(20_000);
+                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                    connection.setRequestProperty("trakt-api-key", clientId);
+                    connection.setRequestProperty("trakt-api-version", "2");
+                    connection.setRequestProperty("Accept", "application/json");
+                    connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
+                    int status = connection.getResponseCode();
+                    if (status == 401 || status == 403) {
+                        TraktDeviceAuth.invalidateAccessToken(context);
+                        Log.w(TAG, "import authorization rejected");
+                        return null;
+                    }
+                    if (attempt == 0 && (status == 429 || status >= 500)) {
+                        Thread.sleep(1000L);
+                        continue;
+                    }
+                    if (status < 200 || status >= 300) {
+                        Log.w(TAG, "import route rejected status=" + status);
+                        return null;
+                    }
+                    JSONArray values = new JSONArray(readText(connection.getInputStream()));
+                    for (int index = 0; index < values.length(); index++) {
+                        result.put(values.get(index));
+                    }
+                    String pages = connection.getHeaderField("X-Pagination-Page-Count");
+                    if (pages != null && pages.matches("[0-9]+")) {
+                        pageCount = Math.max(1, Integer.parseInt(pages));
+                    }
+                    loaded = true;
+                    break;
+                } finally { connection.disconnect(); }
+            }
+            if (!loaded) return null;
+            if (page >= pageCount) return result;
         }
-        return null;
+        throw new IllegalStateException("Trakt pagination limit exceeded");
     }
 
     private static void addWatchedMovies(JSONArray values, Map<String, Target> targets) {

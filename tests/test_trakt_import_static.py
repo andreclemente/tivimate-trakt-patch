@@ -90,6 +90,9 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('"/sync/watched/movies?extended=full"', source)
         self.assertIn('"/sync/watched/shows?extended=full"', source)
         self.assertIn('"/sync/playback?extended=full"', source)
+        self.assertIn('"&limit=100&page="', source)
+        self.assertIn('"X-Pagination-Page-Count"', source)
+        self.assertIn("MAX_TRAKT_PAGES", source)
         self.assertIn("target.traktDurationMs", source)
         self.assertEqual(source.count("TraktImportPolicy.selectWatchedDuration("), 2)
 
