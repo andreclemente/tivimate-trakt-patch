@@ -10,12 +10,17 @@ EXTENSION = JAVA / "TraktPatchExtension.java"
 
 
 class TraktImportStaticRegressionTest(unittest.TestCase):
-    def test_worker_import_contract_is_authenticated_post_and_bounded(self):
+    def test_import_calls_trakt_directly_with_required_headers_and_bounds(self):
         source = COORDINATOR.read_text()
-        for route in ("/v1/import/watched/movies", "/v1/import/watched/shows", "/v1/import/playback"):
+        self.assertIn('TRAKT_API = "https://api.trakt.tv"', source)
+        self.assertNotIn("workers.dev", source)
+        for route in ("/sync/watched/movies", "/sync/watched/shows", "/sync/playback"):
             self.assertIn(route, source)
-        self.assertIn('setRequestMethod("POST")', source)
+        self.assertIn('setRequestMethod("GET")', source)
         self.assertIn('"Bearer " + token', source)
+        self.assertIn('setRequestProperty("trakt-api-key", clientId)', source)
+        self.assertIn('setRequestProperty("trakt-api-version", "2")', source)
+        self.assertIn("TraktDeviceAuth.clientId(context)", source)
         self.assertIn("MAX_PROVIDER_REQUESTS = 64", source)
         self.assertIn("MAX_RESPONSE_CHARS = 2_000_000", source)
         self.assertIn("Executors.newSingleThreadExecutor()", source)
@@ -24,6 +29,51 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         source = AUTH.read_text()
         self.assertIn('workers.dev/v1/token"', source)
         self.assertNotIn('workers.dev/v1/device/refresh"', source)
+
+    def test_android_json_reads_are_chunk_bounded_before_accumulation(self):
+        for path in (AUTH, COORDINATOR):
+            source = path.read_text()
+            self.assertNotIn("readLine()", source, path.name)
+            self.assertIn("char[] chunk = new char[8192]", source, path.name)
+            self.assertIn("reader.read(chunk, 0, chunk.length)", source, path.name)
+            self.assertIn("length + count > MAX_RESPONSE_CHARS", source, path.name)
+
+    def test_refresh_and_client_bootstrap_share_one_bounded_transient_retry(self):
+        source = AUTH.read_text()
+        self.assertIn("requestWithRetry(DEVICE_REFRESH_URL, request)", source)
+        self.assertIn("requestWithRetry(CLIENT_URL, null)", source)
+        self.assertIn("for (int attempt = 0; attempt < 2; attempt++)", source)
+        self.assertIn("status == 429 || status >= 500", source)
+        self.assertIn("if (attempt == 0 && isRetryableStatus(error.status))", source)
+        self.assertIn("responseErrorCode(endpoint, status, text)", source)
+        self.assertIn('String code = "HTTP " + status;', source)
+        self.assertIn("post(DEVICE_TOKEN_URL, request)", source)
+        self.assertNotIn("requestWithRetry(DEVICE_TOKEN_URL", source)
+
+    def test_retryable_http_status_is_classified_before_reading_response_body(self):
+        source = AUTH.read_text()
+        post = source[source.index("private static JSONObject post("):
+                      source.index("private static String responseErrorCode(")]
+        get = source[source.index("private static JSONObject get("):
+                     source.index("private static String read(")]
+        authoritative_check = (
+            "if (isRetryableStatus(status)) {\n"
+            "                throw new DeviceAuthorizationException(status, \"HTTP \" + status);\n"
+            "            }"
+        )
+        for method in (post, get):
+            self.assertIn(authoritative_check, method)
+            self.assertLess(method.index(authoritative_check), method.index("getErrorStream()"))
+            self.assertLess(method.index(authoritative_check), method.index("String text = read(stream)"))
+
+    def test_existing_encrypted_tokens_bootstrap_and_store_public_client_id(self):
+        source = AUTH.read_text()
+        self.assertIn('workers.dev/v1/client"', source)
+        self.assertIn('static synchronized String clientId(Context context)', source)
+        self.assertIn('stored.optString("client_id", "")', source)
+        self.assertIn('stored.put("client_id", clientId)', source)
+        self.assertIn('token.optString("client_id", "")', source)
+        self.assertNotIn('client_secret', source)
 
     def test_title_is_only_a_shortlist_and_provider_stable_id_confirms(self):
         source = COORDINATOR.read_text()

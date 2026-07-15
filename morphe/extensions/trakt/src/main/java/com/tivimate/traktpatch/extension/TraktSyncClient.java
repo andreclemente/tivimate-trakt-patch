@@ -10,10 +10,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-/** Sends already-resolved playback identity to Trakt through the credential-holding Worker. */
+/** Sends already-resolved playback identity directly to Trakt. */
 public final class TraktSyncClient {
     private static final String TAG = "TiviMateTraktSync";
-    private static final String WORKER = "https://tivimate-trakt-oauth.andreclemente.workers.dev";
+    private static final String TRAKT_API = "https://api.trakt.tv";
     private static volatile Context applicationContext;
 
     private TraktSyncClient() { }
@@ -27,6 +27,8 @@ public final class TraktSyncClient {
         if (context == null || !TraktDeviceAuth.moviesEnabled(context) || durationMs <= 0L) return;
         String accessToken = TraktDeviceAuth.accessToken(context);
         if (accessToken == null) return;
+        String clientId = TraktDeviceAuth.clientId(context);
+        if (clientId == null) return;
         try {
             JSONObject ids = movieIds(info, movie);
             if (ids.length() == 0) {
@@ -37,8 +39,8 @@ public final class TraktSyncClient {
             JSONObject payload = new JSONObject();
             payload.put("movie", new JSONObject().put("ids", ids));
             payload.put("progress", progress);
-            post(progress >= 80.0d ? "/v1/scrobble/stop" : "/v1/scrobble/pause",
-                    payload, accessToken, "movie");
+            post(progress >= 80.0d ? "/scrobble/stop" : "/scrobble/pause",
+                    payload, accessToken, clientId, "movie");
         } catch (Exception error) {
             Log.w(TAG, "movie scrobble failed type=" + error.getClass().getSimpleName());
         }
@@ -51,6 +53,8 @@ public final class TraktSyncClient {
                 || season <= 0 || number <= 0) return;
         String accessToken = TraktDeviceAuth.accessToken(context);
         if (accessToken == null) return;
+        String clientId = TraktDeviceAuth.clientId(context);
+        if (clientId == null) return;
         try {
             JSONObject ids = showIds(info);
             if (ids.length() == 0) {
@@ -62,8 +66,8 @@ public final class TraktSyncClient {
             payload.put("show", new JSONObject().put("ids", ids));
             payload.put("episode", new JSONObject().put("season", season).put("number", number));
             payload.put("progress", progress);
-            post(progress >= 80.0d ? "/v1/scrobble/stop" : "/v1/scrobble/pause",
-                    payload, accessToken, "episode");
+            post(progress >= 80.0d ? "/scrobble/stop" : "/scrobble/pause",
+                    payload, accessToken, clientId, "episode");
         } catch (Exception error) {
             Log.w(TAG, "episode scrobble failed type=" + error.getClass().getSimpleName());
         }
@@ -97,10 +101,11 @@ public final class TraktSyncClient {
         return value;
     }
 
-    private static void post(String path, JSONObject payload, String accessToken, String mediaType) throws Exception {
+    private static void post(String path, JSONObject payload, String accessToken, String clientId,
+                             String mediaType) throws Exception {
         byte[] body = payload.toString().getBytes(StandardCharsets.UTF_8);
         for (int attempt = 0; attempt < 2; attempt++) {
-            HttpURLConnection connection = (HttpURLConnection) new URL(WORKER + path).openConnection();
+            HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + path).openConnection();
             try {
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestMethod("POST");
@@ -109,6 +114,8 @@ public final class TraktSyncClient {
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type", "application/json");
                 connection.setRequestProperty("Authorization", "Bearer " + accessToken);
+                connection.setRequestProperty("trakt-api-key", clientId);
+                connection.setRequestProperty("trakt-api-version", "2");
                 connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
                 connection.setFixedLengthStreamingMode(body.length);
                 try (OutputStream output = connection.getOutputStream()) { output.write(body); }

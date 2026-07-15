@@ -9,10 +9,9 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -29,9 +28,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Bounded, fail-closed Trakt -> TiviMate importer. All network and DB work is serialized off callers. */
 public final class TraktImportCoordinator {
     private static final String TAG = "TiviMateTraktImport";
-    private static final String WORKER = "https://tivimate-trakt-oauth.andreclemente.workers.dev";
+    private static final String TRAKT_API = "https://api.trakt.tv";
     private static final String DATABASE_NAME = "TvPlayer.db";
-    private static final String[] ROUTES = {"/v1/import/watched/movies", "/v1/import/watched/shows", "/v1/import/playback"};
+    private static final String[] ROUTES = {"/sync/watched/movies", "/sync/watched/shows", "/sync/playback"};
     private static final int CATALOG_PAGE_SIZE = 500;
     private static final int MAX_PROVIDER_REQUESTS = 64;
     private static final int PLAYBACK_REQUESTS = 24;
@@ -76,9 +75,11 @@ public final class TraktImportCoordinator {
     private static void importNow(Context context) throws Exception {
         String token = TraktDeviceAuth.accessToken(context);
         if (token == null) return;
-        JSONArray movies = fetch(ROUTES[0], token, context);
-        JSONArray shows = fetch(ROUTES[1], token, context);
-        JSONArray playback = fetch(ROUTES[2], token, context);
+        String clientId = TraktDeviceAuth.clientId(context);
+        if (clientId == null) return;
+        JSONArray movies = fetch(ROUTES[0], token, clientId, context);
+        JSONArray shows = fetch(ROUTES[1], token, clientId, context);
+        JSONArray playback = fetch(ROUTES[2], token, clientId, context);
         if (movies == null || shows == null || playback == null) return;
         LinkedHashMap<String, Target> active = new LinkedHashMap<>();
         LinkedHashMap<String, Target> watchedMovies = new LinkedHashMap<>();
@@ -108,21 +109,19 @@ public final class TraktImportCoordinator {
         }
     }
 
-    private static JSONArray fetch(String route, String token, Context context) throws Exception {
+    private static JSONArray fetch(String route, String token, String clientId, Context context) throws Exception {
         for (int attempt = 0; attempt < 2; attempt++) {
-            HttpURLConnection connection = (HttpURLConnection) new URL(WORKER + route).openConnection();
+            HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route).openConnection();
             try {
                 connection.setInstanceFollowRedirects(false);
-                connection.setRequestMethod("POST");
+                connection.setRequestMethod("GET");
                 connection.setConnectTimeout(15_000);
                 connection.setReadTimeout(20_000);
-                connection.setDoOutput(true);
                 connection.setRequestProperty("Authorization", "Bearer " + token);
-                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setRequestProperty("trakt-api-key", clientId);
+                connection.setRequestProperty("trakt-api-version", "2");
+                connection.setRequestProperty("Accept", "application/json");
                 connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
-                byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
-                connection.setFixedLengthStreamingMode(body.length);
-                try (OutputStream output = connection.getOutputStream()) { output.write(body); }
                 int status = connection.getResponseCode();
                 if (status == 401 || status == 403) {
                     TraktDeviceAuth.invalidateAccessToken(context);
@@ -572,15 +571,16 @@ public final class TraktImportCoordinator {
 
     private static String readText(InputStream stream) throws Exception {
         if (stream == null) return "";
-        BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
         StringBuilder result = new StringBuilder();
-        try {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (result.length() + line.length() > MAX_RESPONSE_CHARS) throw new IllegalStateException("response too large");
-                result.append(line);
+        try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            char[] chunk = new char[8192];
+            int length = 0;
+            for (int count; (count = reader.read(chunk, 0, chunk.length)) != -1;) {
+                if (length + count > MAX_RESPONSE_CHARS) throw new IllegalStateException("response too large");
+                result.append(chunk, 0, count);
+                length += count;
             }
-        } finally { reader.close(); }
+        }
         return result.toString();
     }
 

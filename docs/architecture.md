@@ -15,7 +15,7 @@ TiviMate committed DB transaction
   -> XtreamMetadataResolver (bounded queue, no redirects)
   -> stable TMDB/IMDb identity + season/episode
   -> TraktSyncClient
-  -> authenticated Cloudflare Worker
+  -> Trakt API directly (Bearer token + public client ID)
   -> Trakt scrobble pause/stop
 ```
 
@@ -36,14 +36,14 @@ Xtream playlist wrappers are parsed without decoding and re-encoding credential 
 
 Playback position and duration are milliseconds. Progress is clamped to `0..100`:
 
-- `<80%`: `/v1/scrobble/pause`
-- `>=80%`: `/v1/scrobble/stop`
+- `<80%`: `/scrobble/pause`
+- `>=80%`: `/scrobble/stop`
 
 ## Inbound contract
 
 ```text
 Trakt watched movies + watched shows + active playback
-  -> authenticated Worker GET proxies
+  -> Trakt API directly (Bearer token + public client ID)
   -> stable TMDB/IMDb identity matching
   -> bounded import plan
   -> parameterized writes to TvPlayer.db
@@ -65,4 +65,4 @@ Runtime acceptance requires visible native watched-state proof for one Trakt-onl
 
 ## Authentication
 
-Trakt Device Authorization and refresh pass through the Worker. Client secret never enters the APK. Access and refresh tokens are encrypted with an Android Keystore-backed AES/GCM key. Expired access tokens are refreshed; `401/403` invalidates local auth; `429/5xx` receives one bounded retry.
+Only Trakt Device Authorization, token refresh, and public-client-ID bootstrap pass through the Worker. All watched/playback reads and scrobble writes go directly from Android to `https://api.trakt.tv`. The client secret never enters the APK; the public client ID is stored alongside tokens inside the Android Keystore-backed AES/GCM encrypted JSON. Existing installs fetch `/v1/client` once when that field is absent. Expired access tokens are refreshed through the Worker; `401/403` invalidates local auth; `429/5xx` receives one bounded retry.

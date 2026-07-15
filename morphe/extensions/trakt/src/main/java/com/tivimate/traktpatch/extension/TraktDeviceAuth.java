@@ -21,10 +21,10 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +45,9 @@ public final class TraktDeviceAuth {
             "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/device/token";
     private static final String DEVICE_REFRESH_URL =
             "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/token";
+    private static final String CLIENT_URL =
+            "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/client";
+    private static final int MAX_RESPONSE_CHARS = 1_000_000;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ExecutorService NETWORK = Executors.newSingleThreadExecutor();
 
@@ -60,6 +63,22 @@ public final class TraktDeviceAuth {
         return refreshAccessToken(store);
     }
 
+    /** Returns the public API key, migrating already-encrypted token records on first use. */
+    static synchronized String clientId(Context context) {
+        TokenStore store = new TokenStore(context);
+        String clientId = store.clientId();
+        if (clientId != null) return clientId;
+        try {
+            JSONObject config = requestWithRetry(CLIENT_URL, null);
+            clientId = config.optString("client_id", "");
+            if (clientId.length() == 0 || clientId.length() > 4096) return null;
+            store.saveClientId(clientId);
+            return clientId;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     static void invalidateAccessToken(Context context) {
         new TokenStore(context).clear();
     }
@@ -70,7 +89,7 @@ public final class TraktDeviceAuth {
         try {
             JSONObject request = new JSONObject();
             request.put("refresh_token", refreshToken);
-            JSONObject token = post(DEVICE_REFRESH_URL, request);
+            JSONObject token = requestWithRetry(DEVICE_REFRESH_URL, request);
             store.save(token);
             return store.accessToken();
         } catch (DeviceAuthorizationException error) {
@@ -194,36 +213,106 @@ public final class TraktDeviceAuth {
 
     private static JSONObject post(String endpoint, JSONObject payload) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
-        connection.setRequestMethod("POST");
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(15000);
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
-        byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
-        connection.setFixedLengthStreamingMode(bytes.length);
-        try (OutputStream output = connection.getOutputStream()) { output.write(bytes); }
-        int status = connection.getResponseCode();
-        InputStream stream = status >= 200 && status < 300
-                ? connection.getInputStream() : connection.getErrorStream();
-        String text = read(stream);
-        if (status < 200 || status >= 300) {
-            String code = DEVICE_TOKEN_URL.equals(endpoint) && status == 400 && text.length() == 0
-                    ? "authorization_pending"
-                    : new JSONObject(text.length() == 0 ? "{}" : text)
-                            .optString("error", "HTTP " + status);
-            throw new DeviceAuthorizationException(status, code);
+        try {
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(15000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
+            byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
+            connection.setFixedLengthStreamingMode(bytes.length);
+            try (OutputStream output = connection.getOutputStream()) { output.write(bytes); }
+            int status = connection.getResponseCode();
+            if (isRetryableStatus(status)) {
+                throw new DeviceAuthorizationException(status, "HTTP " + status);
+            }
+            InputStream stream = status >= 200 && status < 300
+                    ? connection.getInputStream() : connection.getErrorStream();
+            String text = read(stream);
+            if (status < 200 || status >= 300) {
+                throw new DeviceAuthorizationException(status, responseErrorCode(endpoint, status, text));
+            }
+            return new JSONObject(text);
+        } finally {
+            connection.disconnect();
         }
-        return new JSONObject(text);
+    }
+
+    private static String responseErrorCode(String endpoint, int status, String text) {
+        if (DEVICE_TOKEN_URL.equals(endpoint) && status == 400 && text.length() == 0) {
+            return "authorization_pending";
+        }
+        String code = "HTTP " + status;
+        if (text.length() > 0) {
+            try {
+                code = new JSONObject(text).optString("error", code);
+            } catch (Exception ignored) {
+                // The HTTP status still controls retry behavior when an error body is malformed.
+            }
+        }
+        return code;
+    }
+
+    private static JSONObject get(String endpoint) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
+        try {
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(15000);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
+            int status = connection.getResponseCode();
+            if (isRetryableStatus(status)) {
+                throw new DeviceAuthorizationException(status, "HTTP " + status);
+            }
+            InputStream stream = status >= 200 && status < 300
+                    ? connection.getInputStream() : connection.getErrorStream();
+            String text = read(stream);
+            if (status < 200 || status >= 300) {
+                throw new DeviceAuthorizationException(status, "HTTP " + status);
+            }
+            return new JSONObject(text);
+        } finally {
+            connection.disconnect();
+        }
     }
 
     private static String read(InputStream stream) throws Exception {
         if (stream == null) return "";
         StringBuilder value = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            for (String line; (line = reader.readLine()) != null;) value.append(line);
+        try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            char[] chunk = new char[8192];
+            int length = 0;
+            for (int count; (count = reader.read(chunk, 0, chunk.length)) != -1;) {
+                if (length + count > MAX_RESPONSE_CHARS) {
+                    throw new IllegalStateException("response too large");
+                }
+                value.append(chunk, 0, count);
+                length += count;
+            }
         }
         return value.toString();
+    }
+
+    private static JSONObject requestWithRetry(String endpoint, JSONObject payload) throws Exception {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                return payload == null ? get(endpoint) : post(endpoint, payload);
+            } catch (DeviceAuthorizationException error) {
+                if (attempt == 0 && isRetryableStatus(error.status)) {
+                    Thread.sleep(1000L);
+                    continue;
+                }
+                throw error;
+            }
+        }
+        throw new IllegalStateException("retry exhausted");
+    }
+
+    private static boolean isRetryableStatus(int status) {
+        return status == 429 || status >= 500;
     }
 
     private static String message(Exception error) {
@@ -404,6 +493,13 @@ public final class TraktDeviceAuth {
             return value.length() == 0 ? null : value;
         }
 
+        String clientId() {
+            JSONObject stored = stored();
+            if (stored == null) return null;
+            String value = stored.optString("client_id", "");
+            return value.length() == 0 ? null : value;
+        }
+
         private JSONObject stored() {
             String encrypted = preferences.getString(TOKENS, null);
             if (encrypted == null || encrypted.length() == 0) return null;
@@ -420,6 +516,21 @@ public final class TraktDeviceAuth {
             stored.put("refresh_token", token.getString("refresh_token"));
             stored.put("expires_in", token.optLong("expires_in", 0));
             stored.put("created_at", token.optLong("created_at", 0));
+            String clientId = token.optString("client_id", "");
+            if (clientId.length() == 0) {
+                JSONObject previous = stored();
+                clientId = previous == null ? "" : previous.optString("client_id", "");
+            }
+            if (clientId.length() > 0) stored.put("client_id", clientId);
+            if (!preferences.edit().putString(TOKENS, encrypt(stored.toString())).commit()) {
+                throw new IllegalStateException("token storage failed");
+            }
+        }
+
+        void saveClientId(String clientId) throws Exception {
+            JSONObject stored = stored();
+            if (stored == null) throw new IllegalStateException("token storage missing");
+            stored.put("client_id", clientId);
             if (!preferences.edit().putString(TOKENS, encrypt(stored.toString())).commit()) {
                 throw new IllegalStateException("token storage failed");
             }

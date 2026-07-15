@@ -1,6 +1,8 @@
 const TRAKT_API = 'https://api.trakt.tv';
 const REDIRECT_URI = 'https://andreclemente.github.io/tivimate-trakt-patch/oauth/callback/';
-const WORKER_BUILD = '2026-07-15-inbound-v1';
+const WORKER_BUILD = '2026-07-15-auth-bootstrap-v1';
+const MAX_AUTH_REQUEST_BYTES = 16 * 1024;
+const MAX_OAUTH_RESPONSE_BYTES = 1024 * 1024;
 const JSON_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',
@@ -12,9 +14,35 @@ function json(status, value) {
   return new Response(JSON.stringify(value), { status, headers: JSON_HEADERS });
 }
 
-async function body(request) {
+class PayloadTooLarge extends Error {}
+
+async function boundedText(message, maximumBytes) {
+  if (!message.body) return '';
+  const reader = message.body.getReader();
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let text = '';
   try {
-    const value = await request.json();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > maximumBytes) {
+        await reader.cancel();
+        throw new PayloadTooLarge();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function body(request) {
+  const text = await boundedText(request, MAX_AUTH_REQUEST_BYTES);
+  try {
+    const value = JSON.parse(text);
     return value && typeof value === 'object' ? value : null;
   } catch {
     return null;
@@ -25,7 +53,7 @@ function nonEmptyString(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 4096;
 }
 
-async function traktFetch(path, payload, fetchImpl) {
+async function traktFetch(path, payload, fetchImpl, publicClientId) {
   const upstream = await fetchImpl(`${TRAKT_API}${path}`, {
     method: 'POST',
     headers: {
@@ -36,7 +64,27 @@ async function traktFetch(path, payload, fetchImpl) {
     },
     body: JSON.stringify(payload),
   });
-  return new Response(await upstream.text(), {
+  let text;
+  try {
+    text = await boundedText(upstream, MAX_OAUTH_RESPONSE_BYTES);
+  } catch (error) {
+    if (error instanceof PayloadTooLarge) {
+      return json(502, { error: 'upstream_response_too_large' });
+    }
+    throw error;
+  }
+  if (upstream.status >= 200 && upstream.status < 300 && publicClientId) {
+    try {
+      const value = JSON.parse(text);
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        value.client_id = publicClientId;
+        text = JSON.stringify(value);
+      }
+    } catch {
+      // Preserve an unexpected successful upstream body unchanged.
+    }
+  }
+  return new Response(text, {
     status: upstream.status,
     headers: {
       ...JSON_HEADERS,
@@ -45,100 +93,31 @@ async function traktFetch(path, payload, fetchImpl) {
   });
 }
 
-async function authenticatedTraktFetch(path, method, payload, accessToken, env, fetchImpl) {
-  const upstream = await fetchImpl(`${TRAKT_API}${path}`, {
-    method,
-    headers: {
-      'content-type': 'application/json',
-      accept: 'application/json',
-      'user-agent': 'TiviMate-Trakt-Patch-OAuth-Proxy/1.0',
-      'trakt-api-version': '2',
-      'trakt-api-key': env.TRAKT_CLIENT_ID,
-      authorization: `Bearer ${accessToken}`,
-    },
-    ...(payload ? { body: JSON.stringify(payload) } : {}),
-  });
-  const responseHeaders = {
-    ...JSON_HEADERS,
-    'content-type': upstream.headers.get('content-type') || 'application/json; charset=utf-8',
-  };
-  for (const name of ['x-pagination-page', 'x-pagination-page-count', 'x-pagination-limit', 'x-pagination-item-count']) {
-    const value = upstream.headers.get(name);
-    if (value) responseHeaders[name] = value;
-  }
-  return new Response(await upstream.text(), {
-    status: upstream.status,
-    headers: responseHeaders,
-  });
-}
-
-function bearerToken(request) {
-  const value = request.headers.get('authorization') || '';
-  const match = /^Bearer (.+)$/.exec(value);
-  return match && nonEmptyString(match[1]) ? match[1] : null;
-}
-
-function hasSyncItems(value) {
-  return value && typeof value === 'object'
-    && ((Array.isArray(value.movies) && value.movies.length > 0)
-      || (Array.isArray(value.shows) && value.shows.length > 0));
-}
-
-function validScrobble(value) {
-  return value && typeof value === 'object'
-    && Number.isFinite(value.progress) && value.progress >= 0 && value.progress <= 100
-    && ((value.movie && typeof value.movie === 'object')
-      || (value.show && typeof value.show === 'object' && value.episode && typeof value.episode === 'object'));
-}
-
 export async function handle(request, env, fetchImpl = fetch) {
+  const path = new URL(request.url).pathname;
+  if (path === '/v1/client' && request.method === 'GET') {
+    if (!env.TRAKT_CLIENT_ID) return json(500, { error: 'server_not_configured' });
+    return json(200, { client_id: env.TRAKT_CLIENT_ID });
+  }
   if (request.method !== 'POST') return json(404, { error: 'not_found' });
   if (!env.TRAKT_CLIENT_ID || !env.TRAKT_CLIENT_SECRET) {
     return json(500, { error: 'server_not_configured' });
   }
 
-  const path = new URL(request.url).pathname;
   if (path === '/v1/device/code') {
     return traktFetch('/oauth/device/code', { client_id: env.TRAKT_CLIENT_ID }, fetchImpl);
   }
 
-  const requestBody = await body(request);
-  const importRoutes = {
-    '/v1/import/watched/movies': '/sync/watched/movies',
-    '/v1/import/watched/shows': '/sync/watched/shows',
-    '/v1/import/playback': '/sync/playback',
-  };
-  if (importRoutes[path]) {
-    const accessToken = bearerToken(request);
-    if (!accessToken) return json(401, { error: 'missing_authorization' });
-    return authenticatedTraktFetch(importRoutes[path], 'GET', null, accessToken, env, fetchImpl);
+  if (path !== '/v1/device/token' && path !== '/v1/token') {
+    return json(404, { error: 'not_found' });
   }
-
-  const syncRoutes = {
-    '/v1/sync/history': '/sync/history',
-    '/v1/sync/history/remove': '/sync/history/remove',
-  };
-  const scrobbleRoutes = {
-    '/v1/scrobble/start': '/scrobble/start',
-    '/v1/scrobble/pause': '/scrobble/pause',
-    '/v1/scrobble/stop': '/scrobble/stop',
-  };
-  if (syncRoutes[path] || scrobbleRoutes[path] || path === '/v1/sync/status'
-      || path === '/v1/sync/playback') {
-    const accessToken = bearerToken(request);
-    if (!accessToken) return json(401, { error: 'missing_authorization' });
-    if (syncRoutes[path]) {
-      if (!hasSyncItems(requestBody)) return json(400, { error: 'invalid_sync_payload' });
-      return authenticatedTraktFetch(syncRoutes[path], 'POST', requestBody, accessToken, env, fetchImpl);
-    }
-    if (scrobbleRoutes[path]) {
-      if (!validScrobble(requestBody)) return json(400, { error: 'invalid_scrobble_payload' });
-      return authenticatedTraktFetch(scrobbleRoutes[path], 'POST', requestBody, accessToken, env, fetchImpl);
-    }
-    return authenticatedTraktFetch(path === '/v1/sync/status' ? '/users/settings' : '/sync/playback',
-      'GET', null, accessToken, env, fetchImpl);
+  let requestBody;
+  try {
+    requestBody = await body(request);
+  } catch (error) {
+    if (error instanceof PayloadTooLarge) return json(413, { error: 'request_too_large' });
+    throw error;
   }
-
   if (path === '/v1/device/token') {
     if (!requestBody || !nonEmptyString(requestBody.code)) {
       return json(400, { error: 'invalid_request' });
@@ -147,7 +126,7 @@ export async function handle(request, env, fetchImpl = fetch) {
       code: requestBody.code,
       client_id: env.TRAKT_CLIENT_ID,
       client_secret: env.TRAKT_CLIENT_SECRET,
-    }, fetchImpl);
+    }, fetchImpl, env.TRAKT_CLIENT_ID);
   }
 
   if (path === '/v1/token') {
@@ -160,10 +139,8 @@ export async function handle(request, env, fetchImpl = fetch) {
       client_secret: env.TRAKT_CLIENT_SECRET,
       redirect_uri: REDIRECT_URI,
       grant_type: 'refresh_token',
-    }, fetchImpl);
+    }, fetchImpl, env.TRAKT_CLIENT_ID);
   }
-
-  return json(404, { error: 'not_found' });
 }
 
 export default { fetch: (request, env) => handle(request, env) };

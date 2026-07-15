@@ -149,7 +149,7 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertNotIn('Log.i(TAG, infoUrl', resolver)
         self.assertNotIn('error.getMessage()', resolver)
 
-    def test_movie_progress_resolves_identity_then_posts_authenticated_scrobble(self):
+    def test_movie_progress_resolves_identity_then_posts_direct_authenticated_scrobble(self):
         bridge = PROGRESS_BRIDGE.read_text()
         resolver = METADATA_RESOLVER.read_text()
         self.assertTrue(SYNC_CLIENT.exists(), "Trakt sync client is missing")
@@ -157,10 +157,15 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('last_played_position_ms', bridge)
         self.assertIn('duration_ms', bridge)
         self.assertIn('TraktSyncClient.submitMovie', resolver)
-        self.assertIn('/v1/scrobble/pause', client)
-        self.assertIn('/v1/scrobble/stop', client)
+        self.assertIn('TRAKT_API = "https://api.trakt.tv"', client)
+        self.assertNotIn('workers.dev', client)
+        self.assertIn('/scrobble/pause', client)
+        self.assertIn('/scrobble/stop', client)
         self.assertIn('Authorization', client)
         self.assertIn('Bearer ', client)
+        self.assertIn('setRequestProperty("trakt-api-key", clientId)', client)
+        self.assertIn('setRequestProperty("trakt-api-version", "2")', client)
+        self.assertIn('TraktDeviceAuth.clientId(context)', client)
         self.assertIn('TraktDeviceAuth.accessToken', client)
         self.assertNotIn('Log.i(TAG, accessToken', client)
         self.assertNotIn('error.getMessage()', client)
