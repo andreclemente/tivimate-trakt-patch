@@ -37,7 +37,8 @@ public final class TraktImportPolicy {
 
     public static String normalizedTitle(String value) {
         if (value == null) return "";
-        String ascii = Normalizer.normalize(value, Normalizer.Form.NFD)
+        String cleaned = value.replaceFirst("(?i)^\\s*(?:[a-z]{2,4}(?:/[a-z]{2,4})?|top|ar-subs)\\s*[-:]\\s*", "");
+        String ascii = Normalizer.normalize(cleaned, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").toLowerCase(Locale.US)
                 .replaceFirst("\\s*\\(?(?:19|20)[0-9]{2}\\)?\\s*$", "");
         return ascii.replaceAll("[^a-z0-9]+", " ").trim().replaceAll(" +", " ");
@@ -45,11 +46,12 @@ public final class TraktImportPolicy {
 
     public static boolean shortlist(String localTitle, int localYear,
                                     String remoteTitle, int remoteYear) {
-        if (!normalizedTitle(localTitle).equals(normalizedTitle(remoteTitle))) return false;
-        return localYear <= 0 || remoteYear <= 0 || localYear == remoteYear;
+        // IPTV year labels are frequently wrong. Title only creates a provider shortlist;
+        // sameStableId remains the mandatory identity gate before any write.
+        return normalizedTitle(localTitle).equals(normalizedTitle(remoteTitle));
     }
 
-    /** Immutable title/year lookup with the same matching rules as {@link #shortlist}. */
+    /** Immutable normalized-title lookup with the same matching rules as {@link #shortlist}. */
     public static final class ShortlistIndex {
         private final Map<String, YearRule> titles;
 
@@ -59,7 +61,7 @@ public final class TraktImportPolicy {
 
         public boolean contains(String localTitle, int localYear) {
             YearRule rule = titles.get(normalizedTitle(localTitle));
-            return rule != null && (localYear <= 0 || rule.wildcard || rule.years.contains(localYear));
+            return rule != null;
         }
     }
 
