@@ -253,7 +253,7 @@ public final class TraktImportCoordinator {
 
         int changed = 0;
         if (matches.isEmpty()) {
-            Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests + " changed=0");
+            Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests + " matches=0 changed=0");
             return;
         }
         Set<String> expectedMovies = new HashSet<>();
@@ -296,7 +296,8 @@ public final class TraktImportCoordinator {
                 TraktProgressBridge.endImportWrite();
             }
         }
-        Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests + " changed=" + changed);
+        Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests
+                + " matches=" + matches.size() + " changed=" + changed);
     }
 
     private static int resolveProviderCandidates(List<CategoryState> states,
