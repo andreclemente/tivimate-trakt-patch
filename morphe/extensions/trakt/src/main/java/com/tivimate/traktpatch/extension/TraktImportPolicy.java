@@ -37,7 +37,8 @@ public final class TraktImportPolicy {
 
     public static String normalizedTitle(String value) {
         if (value == null) return "";
-        String cleaned = value.replaceFirst("(?i)^\\s*(?:[a-z]{2,4}(?:/[a-z]{2,4})?|top|ar-subs)\\s*[-:]\\s*", "");
+        String cleaned = value.replaceAll("\\p{Cf}+", "")
+                .replaceFirst("(?i)^\\s*(?:[a-z]{2,4}(?:/[a-z]{2,4})?|top|ar-subs)\\s*[-:|–—]\\s*", "");
         String ascii = Normalizer.normalize(cleaned, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").toLowerCase(Locale.US)
                 .replaceFirst("\\s*\\(?(?:19|20)[0-9]{2}\\)?\\s*$", "");
