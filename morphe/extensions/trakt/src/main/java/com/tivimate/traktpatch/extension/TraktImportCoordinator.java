@@ -441,6 +441,11 @@ public final class TraktImportCoordinator {
                     String url = cursor.isNull(3) ? "" : cursor.getString(3);
                     if (!xc.matches("[0-9]+") || title.length() == 0 || url.length() == 0) continue;
                     int year = yearFromTitle(title);
+                    if ("series".equals(table)
+                            && TraktImportPolicy.normalizedTitle(title).contains("among")) {
+                        Log.i(TAG, "series catalog hint normalized="
+                                + TraktImportPolicy.normalizedTitle(title) + " year=" + year);
+                    }
                     if (!targetIndex.contains(title, year)) continue;
                     if (result.size() >= candidateLimit) {
                         throw new IllegalStateException("provider candidate limit exceeded");
