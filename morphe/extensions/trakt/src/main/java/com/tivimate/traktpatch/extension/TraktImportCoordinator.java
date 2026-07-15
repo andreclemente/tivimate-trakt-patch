@@ -103,6 +103,11 @@ public final class TraktImportCoordinator {
         categories.add(new ArrayList<>(watchedMovies.values()));
         categories.add(new ArrayList<>(watchedShows.values()));
         int targetCount = active.size() + watchedMovies.size() + watchedShows.size();
+        for (Target target : watchedShows.values()) {
+            Log.i(TAG, "show target normalized=" + TraktImportPolicy.normalizedTitle(target.title)
+                    + " year=" + target.year + " season=" + target.season
+                    + " episode=" + target.episode);
+        }
         if (targetCount == 0) { Log.i(TAG, "import skipped targets=0"); return; }
 
         java.io.File file = context.getDatabasePath(DATABASE_NAME);
