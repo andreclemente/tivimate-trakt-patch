@@ -35,14 +35,18 @@ public final class TraktImportCoordinator {
     private static final String TRAKT_API = "https://api.trakt.tv";
     private static final String DATABASE_NAME = "TvPlayer.db";
     private static final String[] ROUTES = {"/sync/watched/movies?extended=full",
-            "/sync/history/episodes?extended=full", "/sync/playback?extended=full"};
+            "/sync/watched/shows?extended=full", "/sync/playback?extended=full"};
     private static final int CATALOG_PAGE_SIZE = 500;
     private static final int PROVIDER_THREADS = 8;
     private static final int PROVIDER_BATCH_SIZE = 32;
     private static final int MAX_PROVIDER_TASKS = 4096;
     private static final int MAX_RESPONSE_CHARS = 2_000_000;
     private static final int MAX_TRAKT_PAGES = 100;
-    private static final int MAX_EPISODE_HISTORY_PAGES = 1;
+    private static final int MAX_WATCHED_SHOW_DETAILS_PER_IMPORT = 8;
+    private static final int RECENT_WATCHED_SHOW_DETAILS_PER_IMPORT = 4;
+    private static final String DETAIL_CHECKPOINT_PREFS = "trakt_import_checkpoint";
+    private static final String DETAIL_CHECKPOINT_KEY = "watched_show_cursor";
+    private static final int TRAKT_DETAIL_THREADS = 2;
     private static final ExecutorService IMPORTS = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
     private static final AtomicBoolean PENDING = new AtomicBoolean();
@@ -67,7 +71,12 @@ public final class TraktImportCoordinator {
                 try {
                     while (PENDING.getAndSet(false)) {
                         try { importNow(context); }
-                        catch (Exception error) { Log.w(TAG, "import failed type=" + error.getClass().getSimpleName()); }
+                        catch (Exception error) {
+                            Throwable root = error;
+                            while (root.getCause() != null) root = root.getCause();
+                            Log.w(TAG, "import failed type=" + error.getClass().getSimpleName()
+                                    + " root=" + root.getClass().getSimpleName());
+                        }
                     }
                 } finally {
                     RUNNING.set(false);
@@ -88,6 +97,10 @@ public final class TraktImportCoordinator {
         JSONArray shows = fetch(ROUTES[1], token, clientId, context);
         JSONArray playback = fetch(ROUTES[2], token, clientId, context);
         if (movies == null || shows == null || playback == null) return;
+        if (TraktDeviceAuth.showsEnabled(context)) {
+            shows = enrichWatchedShows(shows, token, clientId, context,
+                    localSeriesTitles(context));
+        }
         Log.i(TAG, "import fetched movies=" + movies.length() + " shows=" + shows.length()
                 + " playback=" + playback.length());
         LinkedHashMap<String, Target> active = new LinkedHashMap<>();
@@ -121,9 +134,7 @@ public final class TraktImportCoordinator {
     private static JSONArray fetch(String route, String token, String clientId, Context context) throws Exception {
         JSONArray result = new JSONArray();
         int pageCount = 1;
-        int pageLimit = route.startsWith("/sync/history/episodes")
-                ? MAX_EPISODE_HISTORY_PAGES : MAX_TRAKT_PAGES;
-        for (int page = 1; page <= pageLimit; page++) {
+        for (int page = 1; page <= MAX_TRAKT_PAGES; page++) {
             boolean loaded = false;
             for (int attempt = 0; attempt < 2; attempt++) {
                 HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route
@@ -165,9 +176,174 @@ public final class TraktImportCoordinator {
                 } finally { connection.disconnect(); }
             }
             if (!loaded) return null;
-            if (page >= pageCount || page >= pageLimit) return result;
+            if (page >= pageCount) return result;
         }
         throw new IllegalStateException("Trakt pagination limit exceeded");
+    }
+
+    private static Set<String> localSeriesTitles(Context context) throws Exception {
+        java.io.File file = context.getDatabasePath(DATABASE_NAME);
+        if (!file.isFile()) throw new IOException("database missing");
+        Set<String> result = new HashSet<>();
+        SQLiteDatabase database = SQLiteDatabase.openDatabase(file.getAbsolutePath(), null,
+                SQLiteDatabase.OPEN_READONLY);
+        try {
+            Cursor cursor = database.rawQuery("SELECT name FROM series", null);
+            try {
+                while (cursor.moveToNext()) {
+                    String title = cursor.isNull(0) ? "" :
+                            TraktImportPolicy.normalizedTitle(cursor.getString(0));
+                    if (!title.isEmpty()) result.add(title);
+                }
+            } finally {
+                cursor.close();
+            }
+        } finally {
+            database.close();
+        }
+        return result;
+    }
+
+    /**
+     * Trakt can return watched-show aggregates without nested seasons. Resolve those
+     * aggregates through the authoritative progress resource before reconciliation.
+     */
+    private static JSONArray enrichWatchedShows(JSONArray values, final String token,
+                                                final String clientId, final Context context,
+                                                Set<String> localTitles)
+            throws Exception {
+        List<JSONObject> eligible = new ArrayList<>();
+        List<JSONObject> wrappers = new ArrayList<>();
+        List<Future<JSONObject>> futures = new ArrayList<>();
+        ExecutorService pool = Executors.newFixedThreadPool(TRAKT_DETAIL_THREADS);
+        try {
+            for (int i = 0; i < values.length(); i++) {
+                JSONObject wrapper = values.optJSONObject(i);
+                if (wrapper == null || wrapper.optJSONArray("seasons") != null) continue;
+                JSONObject show = wrapper.optJSONObject("show");
+                String normalized = show == null ? "" :
+                        TraktImportPolicy.normalizedTitle(show.optString("title", ""));
+                if (normalized.isEmpty() || !localTitles.contains(normalized)) continue;
+                eligible.add(wrapper);
+            }
+            if (eligible.isEmpty()) return values;
+
+            java.util.LinkedHashSet<JSONObject> selected = new java.util.LinkedHashSet<>();
+            int recent = Math.min(RECENT_WATCHED_SHOW_DETAILS_PER_IMPORT, eligible.size());
+            for (int i = 0; i < recent; i++) selected.add(eligible.get(i));
+            int cursor = context.getSharedPreferences(DETAIL_CHECKPOINT_PREFS,
+                    Context.MODE_PRIVATE).getInt(DETAIL_CHECKPOINT_KEY, 0);
+            cursor = Math.floorMod(cursor, eligible.size());
+            int scanned = 0;
+            while (selected.size() < MAX_WATCHED_SHOW_DETAILS_PER_IMPORT
+                    && scanned < eligible.size()) {
+                selected.add(eligible.get(cursor));
+                cursor = (cursor + 1) % eligible.size();
+                scanned++;
+            }
+
+            for (final JSONObject wrapper : selected) {
+                JSONObject show = wrapper.optJSONObject("show");
+                JSONObject ids = show.optJSONObject("ids");
+                final long traktId = ids == null ? 0L : ids.optLong("trakt", 0L);
+                if (traktId <= 0L) {
+                    throw new IllegalStateException("watched show missing Trakt id");
+                }
+                wrappers.add(wrapper);
+                futures.add(pool.submit(new Callable<JSONObject>() {
+                    @Override public JSONObject call() throws Exception {
+                        return fetchObject("/shows/" + traktId
+                                + "/progress/watched?hidden=false&specials=false&count_specials=false",
+                                token, clientId, context);
+                    }
+                }));
+            }
+            for (int i = 0; i < futures.size(); i++) {
+                JSONObject progress = futures.get(i).get();
+                if (progress == null) throw new IOException("watched progress unavailable");
+                wrappers.get(i).put("seasons", completedSeasons(progress));
+            }
+            context.getSharedPreferences(DETAIL_CHECKPOINT_PREFS, Context.MODE_PRIVATE)
+                    .edit().putInt(DETAIL_CHECKPOINT_KEY, cursor).apply();
+            if (!futures.isEmpty()) {
+                Log.i(TAG, "import enriched watched_shows=" + futures.size());
+            }
+            return values;
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private static JSONArray completedSeasons(JSONObject progress) throws Exception {
+        JSONArray result = new JSONArray();
+        JSONArray seasons = progress == null ? null : progress.optJSONArray("seasons");
+        if (seasons == null) return result;
+        for (int s = 0; s < seasons.length(); s++) {
+            JSONObject sourceSeason = seasons.optJSONObject(s);
+            int seasonNumber = sourceSeason == null ? 0 : sourceSeason.optInt("number", 0);
+            JSONArray sourceEpisodes = sourceSeason == null
+                    ? null : sourceSeason.optJSONArray("episodes");
+            if (seasonNumber <= 0 || sourceEpisodes == null) continue;
+            JSONArray completed = new JSONArray();
+            for (int e = 0; e < sourceEpisodes.length(); e++) {
+                JSONObject episode = sourceEpisodes.optJSONObject(e);
+                int episodeNumber = episode == null ? 0 : episode.optInt("number", 0);
+                if (episodeNumber > 0 && episode.optBoolean("completed", false)) {
+                    JSONObject value = new JSONObject();
+                    value.put("number", episodeNumber);
+                    completed.put(value);
+                }
+            }
+            if (completed.length() > 0) {
+                JSONObject season = new JSONObject();
+                season.put("number", seasonNumber);
+                season.put("episodes", completed);
+                result.put(season);
+            }
+        }
+        return result;
+    }
+
+    private static JSONObject fetchObject(String route, String token, String clientId,
+                                          Context context) throws Exception {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route)
+                    .openConnection();
+            try {
+                connection.setInstanceFollowRedirects(false);
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(15_000);
+                connection.setReadTimeout(20_000);
+                connection.setRequestProperty("Authorization", "Bearer " + token);
+                connection.setRequestProperty("trakt-api-key", clientId);
+                connection.setRequestProperty("trakt-api-version", "2");
+                connection.setRequestProperty("Accept", "application/json");
+                connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
+                int status = connection.getResponseCode();
+                if (status == 401 || status == 403) {
+                    TraktDeviceAuth.invalidateAccessToken(context);
+                    Log.w(TAG, "import authorization rejected");
+                    return null;
+                }
+                if (attempt < 2 && (status == 429 || status >= 500)) {
+                    Thread.sleep((attempt + 1L) * 1000L);
+                    continue;
+                }
+                if (status < 200 || status >= 300) {
+                    throw new IOException("watched progress rejected status=" + status);
+                }
+                return new JSONObject(readText(connection.getInputStream()));
+            } catch (IOException error) {
+                if (attempt < 2) {
+                    Thread.sleep((attempt + 1L) * 1000L);
+                    continue;
+                }
+                throw error;
+            } finally {
+                connection.disconnect();
+            }
+        }
+        return null;
     }
 
     private static void addWatchedMovies(JSONArray values, Map<String, Target> targets) {
@@ -306,6 +482,7 @@ public final class TraktImportCoordinator {
         }
         Set<String> expectedMovies = new HashSet<>();
         Set<String> expectedEpisodes = new HashSet<>();
+        Set<String> removedEpisodes = new HashSet<>();
         boolean transactionStarted = false;
         boolean commitRequested = false;
         TraktProgressBridge.beginImportWrite();
@@ -329,6 +506,7 @@ public final class TraktImportCoordinator {
                     }
                 }
             }
+            changed += reconcileEpisodes(database, matches, removedEpisodes);
             database.setTransactionSuccessful();
             commitRequested = true;
         } finally {
@@ -337,7 +515,7 @@ public final class TraktImportCoordinator {
                     database.endTransaction();
                     if (commitRequested) {
                         TraktProgressBridge.mergeExpectedRowsAfterImport(
-                                expectedMovies, expectedEpisodes);
+                                expectedMovies, expectedEpisodes, removedEpisodes);
                     }
                 }
             } finally {
@@ -366,6 +544,7 @@ public final class TraktImportCoordinator {
             }
         }
 
+        final List<Resolution> resolutions = new ArrayList<>(providerTasks.size());
         ExecutorService executor = Executors.newFixedThreadPool(PROVIDER_THREADS);
         try {
             for (int start = 0; start < providerTasks.size(); start += PROVIDER_BATCH_SIZE) {
@@ -385,55 +564,75 @@ public final class TraktImportCoordinator {
                 // aborts before beginImportWrite/database.beginTransaction.
                 List<Future<Resolution>> futures = executor.invokeAll(batch);
                 for (Future<Resolution> future : futures) {
-                    applyResolution(states, future.get());
+                    resolutions.add(future.get());
                 }
-                // batch, futures, and their response JSON become unreachable here.
             }
         } finally {
             executor.shutdownNow();
         }
 
-        // Category, target, and catalog insertion order determine write order. Every
-        // independently stable-ID-confirmed catalog duplicate receives native state.
+        applyResolutions(states, resolutions);
+        // Category, target, and catalog insertion order determine write order. A target
+        // first requires one provider stable-ID confirmation. Exact title/year provider
+        // siblings then receive native state with their own movie/episode IDs.
         for (CategoryState state : states) for (TargetScan scan : state.scans) {
             matches.addAll(scan.matches);
         }
         return providerTasks.size();
     }
 
-    private static void applyResolution(List<CategoryState> states, Resolution resolution) {
-        JSONObject info = resolution.provider.optJSONObject("info");
-        JSONObject movie = resolution.provider.optJSONObject("movie_data");
-        ProviderIdentity identity = providerIdentity(info, movie);
-        for (CategoryState state : states) for (TargetScan scan : state.scans) {
-            Candidate candidate = resolution.candidate;
-            boolean shortlisted = shortlisted(candidate, scan.target);
-            boolean stableMatch = !identity.conflict && TraktImportPolicy.sameStableId(
-                    scan.target.tmdb, scan.target.imdb, identity.tmdb, identity.imdb);
-            if (shortlisted && "episode".equals(scan.target.type) && !stableMatch) {
-                Log.i(TAG, "episode identity mismatch conflict=" + identity.conflict
-                        + " target_tmdb=" + scan.target.tmdb + " target_imdb=" + scan.target.imdb
-                        + " provider_tmdb=" + identity.tmdb + " provider_imdb=" + identity.imdb);
+    private static void applyResolutions(List<CategoryState> states,
+                                         List<Resolution> resolutions) {
+        Set<Target> confirmedTargets = java.util.Collections.newSetFromMap(
+                new IdentityHashMap<Target, Boolean>());
+        // Pass one: a provider stable ID must independently authorize each Trakt target.
+        for (Resolution resolution : resolutions) {
+            JSONObject info = resolution.provider.optJSONObject("info");
+            JSONObject movie = resolution.provider.optJSONObject("movie_data");
+            ProviderIdentity identity = providerIdentity(info, movie);
+            for (CategoryState state : states) for (TargetScan scan : state.scans) {
+                if (("movie".equals(scan.target.type)) != resolution.movie
+                        || !shortlisted(resolution.candidate, scan.target)) continue;
+                boolean stableMatch = !identity.conflict && TraktImportPolicy.sameStableId(
+                        scan.target.tmdb, scan.target.imdb, identity.tmdb, identity.imdb);
+                if (stableMatch) confirmedTargets.add(scan.target);
             }
-            if (("movie".equals(scan.target.type)) != resolution.movie
-                    || !shortlisted || !stableMatch) continue;
-            Match match = new Match();
-            match.candidate = candidate;
-            match.target = scan.target;
-            if (resolution.movie) {
-                match.providerDurationMs = durationMs(info, movie);
-            } else {
-                JSONObject episode = findEpisode(resolution.provider.optJSONObject("episodes"),
-                        scan.target.season, scan.target.episode);
-                match.episodeXcId = episode == null ? "" : episode.optString("id", "");
-                match.providerDurationMs = episode == null ? 0L
-                        : durationMs(episode.optJSONObject("info"), episode);
-                Log.i(TAG, "episode matched season=" + scan.target.season
-                        + " episode=" + scan.target.episode + " provider_episode_valid="
-                        + match.episodeXcId.matches("[0-9]+")
-                        + " provider_duration=" + match.providerDurationMs);
+        }
+
+        // Pass two: use every candidate's own provider payload. This is essential for
+        // series because episode_xc_id is provider-specific even between duplicate shows.
+        for (Resolution resolution : resolutions) {
+            JSONObject info = resolution.provider.optJSONObject("info");
+            JSONObject movie = resolution.provider.optJSONObject("movie_data");
+            ProviderIdentity identity = providerIdentity(info, movie);
+            for (CategoryState state : states) for (TargetScan scan : state.scans) {
+                Target target = scan.target;
+                Candidate candidate = resolution.candidate;
+                if (("movie".equals(target.type)) != resolution.movie
+                        || !shortlisted(candidate, target)) continue;
+                boolean stableMatch = !identity.conflict && TraktImportPolicy.sameStableId(
+                        target.tmdb, target.imdb, identity.tmdb, identity.imdb);
+                boolean siblingMatch = confirmedTargets.contains(target)
+                        && TraktImportPolicy.confirmedSibling(candidate.title, candidate.year,
+                        target.title, target.year);
+                if (!stableMatch && !siblingMatch) continue;
+
+                Match match = new Match();
+                match.candidate = candidate;
+                match.target = target;
+                if (resolution.movie) {
+                    match.providerDurationMs = durationMs(info, movie);
+                } else {
+                    JSONObject episodes = resolution.provider.optJSONObject("episodes");
+                    match.providerEpisodeIds.addAll(providerEpisodeIds(episodes));
+                    JSONObject episode = findEpisode(episodes,
+                            target.season, target.episode);
+                    match.episodeXcId = episode == null ? "" : episode.optString("id", "");
+                    match.providerDurationMs = episode == null ? 0L
+                            : durationMs(episode.optJSONObject("info"), episode);
+                }
+                scan.matches.add(match);
             }
-            scan.matches.add(match);
         }
     }
 
@@ -517,9 +716,79 @@ public final class TraktImportCoordinator {
         } finally { connection.disconnect(); }
     }
 
+    private static int reconcileEpisodes(SQLiteDatabase database, List<Match> matches,
+                                         Set<String> removedEpisodeIdentities) {
+        Map<Long, SeriesReconciliation> bySeries = new LinkedHashMap<>();
+        for (Match match : matches) {
+            if (!"episode".equals(match.target.type)) continue;
+            SeriesReconciliation state = bySeries.get(match.candidate.id);
+            if (state == null) {
+                state = new SeriesReconciliation(match.candidate.id);
+                bySeries.put(match.candidate.id, state);
+            }
+            state.providerIds.addAll(match.providerEpisodeIds);
+            if (!match.episodeXcId.matches("[0-9]+")) {
+                state.complete = false;
+            } else {
+                state.keepIds.add(match.episodeXcId);
+                if (state.preferredEpisodeId.isEmpty()) {
+                    state.preferredEpisodeId = match.episodeXcId;
+                }
+            }
+        }
+
+        int changed = 0;
+        for (SeriesReconciliation state : bySeries.values()) {
+            if (!state.complete || state.providerIds.isEmpty() || state.keepIds.isEmpty()) continue;
+            List<Long> staleRows = new ArrayList<>();
+            List<String> staleEpisodeIds = new ArrayList<>();
+            Cursor rows = database.rawQuery(
+                    "SELECT id,episode_xc_id FROM episode_last_played_positions WHERE series_id=?",
+                    new String[]{String.valueOf(state.seriesId)});
+            try {
+                while (rows.moveToNext()) {
+                    String episodeId = rows.isNull(1) ? "" : rows.getString(1);
+                    if (state.providerIds.contains(episodeId) && !state.keepIds.contains(episodeId)) {
+                        staleRows.add(rows.getLong(0));
+                        staleEpisodeIds.add(episodeId);
+                    }
+                }
+            } finally { rows.close(); }
+            for (int index = 0; index < staleRows.size(); index++) {
+                if (database.delete("episode_last_played_positions", "id=?",
+                        new String[]{String.valueOf(staleRows.get(index))}) > 0) {
+                    changed++;
+                    removedEpisodeIdentities.add(state.seriesId + ":" + staleEpisodeIds.get(index));
+                }
+            }
+            changed += reconcileSeriesParent(database, state);
+        }
+        return changed;
+    }
+
+    private static int reconcileSeriesParent(SQLiteDatabase database,
+                                             SeriesReconciliation state) {
+        Cursor cursor = database.rawQuery(
+                "SELECT last_turn_on_time,last_episode_xc_id FROM series WHERE id=? LIMIT 1",
+                new String[]{String.valueOf(state.seriesId)});
+        try {
+            if (!cursor.moveToFirst()) return 0;
+            long lastTurn = cursor.isNull(0) ? 0L : cursor.getLong(0);
+            String currentEpisode = cursor.isNull(1) ? "" : cursor.getString(1);
+            if (state.keepIds.contains(currentEpisode)) return 0;
+            if (!currentEpisode.isEmpty() && !state.providerIds.contains(currentEpisode)) return 0;
+            String preferredEpisodeId = state.preferredEpisodeId;
+            ContentValues parent = new ContentValues();
+            parent.put("last_episode_xc_id", preferredEpisodeId);
+            if (lastTurn <= 0L) parent.put("last_turn_on_time", System.currentTimeMillis());
+            return database.update("series", parent, "id=?",
+                    new String[]{String.valueOf(state.seriesId)}) > 0 ? 1 : 0;
+        } finally { cursor.close(); }
+    }
+
     private static String updateMovie(SQLiteDatabase database, Candidate candidate, Target target,
                                       long providerDurationMs) {
-        Cursor cursor = database.rawQuery("SELECT playlist_id,xc_id,last_played_position_ms,duration_ms FROM movies WHERE id=? LIMIT 1",
+        Cursor cursor = database.rawQuery("SELECT playlist_id,xc_id,last_played_position_ms,duration_ms,last_turn_on_time FROM movies WHERE id=? LIMIT 1",
                 new String[]{String.valueOf(candidate.id)});
         try {
             if (!cursor.moveToFirst()) return null;
@@ -528,22 +797,21 @@ public final class TraktImportCoordinator {
             long localPosition = cursor.isNull(2) ? 0L : cursor.getLong(2);
             long localDuration = cursor.isNull(3) ? 0L : cursor.getLong(3);
             String localDurationValue = cursor.isNull(3) ? "null" : cursor.getString(3);
+            long localLastTurn = cursor.isNull(4) ? 0L : cursor.getLong(4);
             if (!target.watched && localDuration <= 0L) return null;
             long duration = target.watched
                     ? TraktImportPolicy.selectWatchedDuration(localDuration,
                     providerDurationMs, target.traktDurationMs)
                     : (localDuration > 0 ? localDuration : providerDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
-            if (position == localPosition && duration == localDuration) {
-                Log.i(TAG, "movie unchanged watched=" + target.watched
-                        + " local_position=" + localPosition + " local_duration=" + localDuration
-                        + " provider_duration=" + providerDurationMs
-                        + " trakt_duration=" + target.traktDurationMs + " merged_position=" + position);
+            boolean missingHistory = position > 0L && localLastTurn <= 0L;
+            if (position == localPosition && duration == localDuration && !missingHistory) {
                 return null;
             }
             ContentValues values = new ContentValues();
             values.put("last_played_position_ms", position);
             if (duration > 0) values.put("duration_ms", duration);
+            if (missingHistory) values.put("last_turn_on_time", System.currentTimeMillis());
             if (database.update("movies", values, "id=?",
                     new String[]{String.valueOf(candidate.id)}) <= 0) return null;
             return "id=" + candidate.id + "|playlist_id=" + playlistId + "|xc_id=" + xcId
@@ -554,10 +822,7 @@ public final class TraktImportCoordinator {
 
     private static String updateEpisode(SQLiteDatabase database, Candidate series, Target target,
                                         String episodeXcId, long providerDurationMs) {
-        if (!episodeXcId.matches("[0-9]+")) {
-            Log.i(TAG, "episode unresolved provider_id");
-            return null;
-        }
+        if (!episodeXcId.matches("[0-9]+")) return null;
         Cursor cursor = database.rawQuery("SELECT id,position_ms,duration_ms FROM episode_last_played_positions WHERE series_id=? AND episode_xc_id=? LIMIT 1",
                 new String[]{String.valueOf(series.id), episodeXcId});
         try {
@@ -570,11 +835,9 @@ public final class TraktImportCoordinator {
                     providerDurationMs, target.traktDurationMs)
                     : (localDuration > 0 ? localDuration : providerDurationMs);
             long position = TraktImportPolicy.mergePosition(localPosition, duration, target.progress, target.watched);
-            if (duration <= 0 || (exists && position == localPosition && duration == localDuration)) {
-                Log.i(TAG, "episode unchanged watched=" + target.watched + " exists=" + exists
-                        + " local_position=" + localPosition + " local_duration=" + localDuration
-                        + " provider_duration=" + providerDurationMs
-                        + " trakt_duration=" + target.traktDurationMs + " merged_position=" + position);
+            if (duration <= 0) return null;
+            if (exists && position == localPosition && duration == localDuration) {
+                ensureSeriesHistory(database, series.id, episodeXcId);
                 return null;
             }
             ContentValues values = new ContentValues();
@@ -592,9 +855,27 @@ public final class TraktImportCoordinator {
                 rowId = database.insert("episode_last_played_positions", null, values); // id deliberately omitted
                 if (rowId < 0) return null;
             }
+            ensureSeriesHistory(database, series.id, episodeXcId);
             return "id=" + rowId + "|series_id=" + series.id + "|episode_xc_id="
                     + episodeXcId + "|position_ms=" + position + "|duration_ms=" + duration;
         } finally { cursor.close(); }
+    }
+
+    private static boolean ensureSeriesHistory(SQLiteDatabase database, long seriesId,
+                                               String episodeXcId) {
+        Cursor cursor = database.rawQuery(
+                "SELECT last_turn_on_time,last_episode_xc_id FROM series WHERE id=? LIMIT 1",
+                new String[]{String.valueOf(seriesId)});
+        try {
+            if (!cursor.moveToFirst()) return false;
+            long lastTurn = cursor.isNull(0) ? 0L : cursor.getLong(0);
+            if (lastTurn > 0L) return false;
+        } finally { cursor.close(); }
+        ContentValues parent = new ContentValues();
+        parent.put("last_turn_on_time", System.currentTimeMillis());
+        parent.put("last_episode_xc_id", episodeXcId);
+        return database.update("series", parent, "id=?",
+                new String[]{String.valueOf(seriesId)}) > 0;
     }
 
     private static boolean safeEpisodeInsertSchema(SQLiteDatabase database) {
@@ -632,6 +913,22 @@ public final class TraktImportCoordinator {
         } catch (RuntimeException ignored) {
             return new HashSet<>();
         } finally { cursor.close(); }
+    }
+
+    private static Set<String> providerEpisodeIds(JSONObject seasons) {
+        Set<String> result = new HashSet<>();
+        if (seasons == null) return result;
+        java.util.Iterator<String> keys = seasons.keys();
+        while (keys.hasNext()) {
+            JSONArray episodes = seasons.optJSONArray(keys.next());
+            if (episodes == null) continue;
+            for (int index = 0; index < episodes.length(); index++) {
+                JSONObject episode = episodes.optJSONObject(index);
+                String id = episode == null ? "" : episode.optString("id", "");
+                if (id.matches("[0-9]+")) result.add(id);
+            }
+        }
+        return result;
     }
 
     private static JSONObject findEpisode(JSONObject seasons, int wantedSeason, int wantedEpisode) {
@@ -715,7 +1012,18 @@ public final class TraktImportCoordinator {
         Candidate candidate;
         Target target;
         String episodeXcId = "";
+        final Set<String> providerEpisodeIds = new HashSet<>();
         long providerDurationMs;
+    }
+
+    private static final class SeriesReconciliation {
+        final long seriesId;
+        final Set<String> providerIds = new HashSet<>();
+        final Set<String> keepIds = new HashSet<>();
+        String preferredEpisodeId = "";
+        boolean complete = true;
+
+        SeriesReconciliation(long seriesId) { this.seriesId = seriesId; }
     }
 
     private static final class ProviderIdentity {

@@ -47,7 +47,6 @@ public final class TraktPatchExtension {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile Activity polledActivity;
     private static volatile boolean windowPollingStarted;
-    private static volatile boolean windowScanLogged;
     private static volatile boolean adapterLogged;
     // A new Other pane owns a new PreferenceScreen. Retain only the screen
     // instances already modified, so leaving and re-entering gets a fresh row.
@@ -58,7 +57,6 @@ public final class TraktPatchExtension {
 
     /** Called by Morphe's injected launch-activity hook. */
     public static synchronized void initialize(Context context) {
-        Log.i(TAG, "initialize context=" + (context == null ? "null" : context.getClass().getName()));
         if (initialized || context == null) return;
         Application application = context instanceof Application
                 ? (Application) context
@@ -79,7 +77,6 @@ public final class TraktPatchExtension {
             @Override public void onActivityDestroyed(Activity activity) {}
 
             @Override public void onActivityResumed(final Activity activity) {
-                Log.i(TAG, "activity resumed=" + activity.getClass().getName());
                 View decor = activity.getWindow() == null ? null : activity.getWindow().getDecorView();
                 if (decor == null) return;
 
@@ -122,16 +119,10 @@ public final class TraktPatchExtension {
                 installOtherRow(decor.getContext(), decor);
                 Activity activity = findActivity(decor.getContext());
                 if (activity != null) {
-                    if (!windowScanLogged) {
-                        windowScanLogged = true;
-                        Log.i(TAG, "window poll activity=" + activity.getClass().getName());
-                    }
                     installOtherPreference(activity);
                 }
             }
-        } catch (Throwable error) {
-            if (!windowScanLogged) Log.w(TAG, "window poll unavailable", error);
-        }
+        } catch (Throwable ignored) { }
     }
 
     private static Activity findActivity(Context context) {
@@ -190,7 +181,6 @@ public final class TraktPatchExtension {
         if (screen == null || INSTALLED_SCREENS.contains(screen)) return;
         if (!adapterLogged) {
             adapterLogged = true;
-            logPreferenceApi(adapter, screen);
             return;
         }
         try {
@@ -212,7 +202,6 @@ public final class TraktPatchExtension {
             Method add = screen.getClass().getSuperclass().getMethod("ᵢʿ", preferenceClass);
             add.invoke(screen, preference);
             INSTALLED_SCREENS.add(screen);
-            Log.i(TAG, "added native preference to Leanback PreferenceScreen");
         } catch (ReflectiveOperationException error) {
             Log.w(TAG, "native PreferenceScreen insertion failed", error);
         }
@@ -281,32 +270,6 @@ public final class TraktPatchExtension {
         field.set(preference, value);
     }
 
-    private static void logPreferenceApi(Object adapter, Object screen) {
-        StringBuilder log = new StringBuilder("Native preference API screen=")
-                .append(screen.getClass().getName());
-        for (Method method : screen.getClass().getDeclaredMethods()) {
-            log.append("\n screen ").append(method.getName()).append('(');
-            for (Class<?> parameter : method.getParameterTypes()) log.append(parameter.getName()).append(',');
-            log.append(") -> ").append(method.getReturnType().getName());
-        }
-        for (Field field : adapter.getClass().getDeclaredFields()) {
-            try {
-                field.setAccessible(true);
-                Object value = field.get(adapter);
-                if (value instanceof List) log.append("\n adapter-list ").append(field.getName())
-                        .append(" size=").append(((List<?>) value).size());
-            } catch (IllegalAccessException ignored) { }
-        }
-        try {
-            Class<?> preference = Class.forName("androidx.preference.Preference");
-            for (Method method : preference.getDeclaredMethods()) {
-                log.append("\n pref ").append(method.getName()).append('(');
-                for (Class<?> parameter : method.getParameterTypes()) log.append(parameter.getName()).append(',');
-                log.append(") -> ").append(method.getReturnType().getName());
-            }
-        } catch (ClassNotFoundException ignored) { }
-        Log.i(TAG, log.toString());
-    }
 
     private static Object findPreferenceAdapter(View view) {
         try {
@@ -380,10 +343,6 @@ public final class TraktPatchExtension {
             Method screenMethod = fragment.getClass().getMethod("getPreferenceScreen");
             Object screen = screenMethod.invoke(fragment);
             if (screen == null) return;
-            Method titleMethod = screen.getClass().getMethod("getTitle");
-            Object title = titleMethod.invoke(screen);
-            Log.i(TAG, "preference fragment=" + fragment.getClass().getName() + " screen="
-                    + screen.getClass().getName() + " title=" + title);
             if (!isOtherScreen(screen)) return;
             Method findMethod = screen.getClass().getMethod("findPreference", CharSequence.class);
             if (findMethod.invoke(screen, KEY) != null) return;

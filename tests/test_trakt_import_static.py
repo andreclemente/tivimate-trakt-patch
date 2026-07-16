@@ -14,7 +14,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         source = COORDINATOR.read_text()
         self.assertIn('TRAKT_API = "https://api.trakt.tv"', source)
         self.assertNotIn("workers.dev", source)
-        for route in ("/sync/watched/movies", "/sync/history/episodes", "/sync/playback"):
+        for route in ("/sync/watched/movies", "/sync/watched/shows", "/sync/playback"):
             self.assertIn(route, source)
         self.assertIn('setRequestMethod("GET")', source)
         self.assertIn('"Bearer " + token', source)
@@ -75,28 +75,48 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('token.optString("client_id", "")', source)
         self.assertNotIn('client_secret', source)
 
-    def test_unchanged_match_logs_numeric_state_without_media_identity(self):
+    def test_production_import_removes_per_match_diagnostics_and_media_identity(self):
         source = COORDINATOR.read_text()
-        self.assertIn('"movie unchanged watched="', source)
-        self.assertIn('"episode unchanged watched="', source)
-        self.assertIn('"episode unresolved provider_id"', source)
-        self.assertIn('"episode matched season="', source)
-        self.assertIn('" provider_episode_valid="', source)
+        self.assertNotIn('"movie unchanged watched="', source)
+        self.assertNotIn('"episode unchanged watched="', source)
+        self.assertNotIn('"episode unresolved provider_id"', source)
+        self.assertNotIn('"episode matched season="', source)
+        self.assertNotIn('" provider_episode_valid="', source)
         self.assertNotIn('"movie unchanged id="', source)
         self.assertNotIn('"episode unchanged id="', source)
 
-    def test_direct_trakt_routes_request_full_runtime_metadata(self):
+    def test_direct_trakt_routes_request_complete_authoritative_watched_state(self):
         source = COORDINATOR.read_text()
         self.assertIn('"/sync/watched/movies?extended=full"', source)
-        self.assertIn('"/sync/history/episodes?extended=full"', source)
+        self.assertIn('"/sync/watched/shows?extended=full"', source)
+        self.assertIn('"/shows/" + traktId', source)
+        self.assertIn('"/progress/watched?hidden=false&specials=false&count_specials=false"', source)
+        self.assertIn('episode.optBoolean("completed", false)', source)
+        self.assertIn('localSeriesTitles(context)', source)
+        self.assertIn('!localTitles.contains(normalized)', source)
+        self.assertIn('throw new IOException("watched progress unavailable")', source)
+        self.assertIn('DETAIL_CHECKPOINT_PREFS', source)
+        self.assertIn('DETAIL_CHECKPOINT_KEY', source)
+        self.assertIn('Math.floorMod(cursor, eligible.size())', source)
+        self.assertIn('selected.size() < MAX_WATCHED_SHOW_DETAILS_PER_IMPORT', source)
+        self.assertIn('.edit().putInt(DETAIL_CHECKPOINT_KEY, cursor).apply()', source)
+        self.assertNotIn('if (futures.size() >= MAX_WATCHED_SHOW_DETAILS_PER_IMPORT) continue;', source)
         self.assertIn('wrapper.optJSONObject("episode")', source)
         self.assertIn('"/sync/playback?extended=full"', source)
         self.assertIn('"&limit=100&page="', source)
         self.assertIn('"X-Pagination-Page-Count"', source)
         self.assertIn("MAX_TRAKT_PAGES", source)
-        self.assertIn("MAX_EPISODE_HISTORY_PAGES = 1", source)
+        self.assertNotIn("MAX_EPISODE_HISTORY_PAGES", source)
         self.assertIn("target.traktDurationMs", source)
         self.assertEqual(source.count("TraktImportPolicy.selectWatchedDuration("), 2)
+
+    def test_episode_import_reconciles_provider_rows_to_authoritative_trakt_set(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("providerEpisodeIds", source)
+        self.assertIn("reconcileEpisodes(database, matches, removedEpisodes)", source)
+        self.assertIn('database.delete("episode_last_played_positions"', source)
+        self.assertIn('parent.put("last_episode_xc_id", preferredEpisodeId)', source)
+        self.assertIn("removedEpisodeIdentities", BRIDGE.read_text())
 
     def test_title_is_only_a_shortlist_and_provider_stable_id_confirms(self):
         source = COORDINATOR.read_text()
@@ -110,9 +130,12 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         source = COORDINATOR.read_text()
         self.assertIn('values.put("last_played_position_ms", position)', source)
         self.assertIn('values.put("duration_ms", duration)', source)
+        self.assertIn('values.put("last_turn_on_time", System.currentTimeMillis())', source)
         self.assertIn('values.put("position_ms", position)', source)
         self.assertIn('values.put("series_id", series.id)', source)
         self.assertIn('values.put("episode_xc_id", episodeXcId)', source)
+        self.assertIn("ensureSeriesHistory(database, series.id, episodeXcId)", source)
+        self.assertIn('parent.put("last_episode_xc_id", episodeXcId)', source)
         self.assertIn("safeEpisodeInsertSchema", source)
         insert = source[source.index('database.insert("episode_last_played_positions"'):]
         self.assertNotIn('values.put("id"', insert)
@@ -170,6 +193,14 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("matches.addAll(scan.matches)", source)
         self.assertNotIn("scan.match.candidate.catalogOrder", source)
         self.assertNotIn("scan.match = match", source)
+
+    def test_one_stable_id_confirmation_authorizes_exact_title_year_siblings(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("Set<Target> confirmedTargets", source)
+        self.assertIn("confirmedTargets.add(scan.target)", source)
+        self.assertIn("TraktImportPolicy.confirmedSibling(candidate.title, candidate.year,", source)
+        self.assertIn("applyResolutions(states, resolutions)", source)
+        self.assertIn("matches.addAll(scan.matches)", source)
 
     def test_provider_failures_propagate_before_database_writes(self):
         source = COORDINATOR.read_text()

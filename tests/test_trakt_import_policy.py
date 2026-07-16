@@ -21,6 +21,7 @@ public final class Harness {
     if (a[0].equals("ids")) System.out.print(TraktImportPolicy.sameStableId(a[1],a[2],a[3],a[4]));
     if (a[0].equals("shortlist")) System.out.print(TraktImportPolicy.shortlist(a[1], Integer.parseInt(a[2]), a[3], Integer.parseInt(a[4])));
     if (a[0].equals("shortlistSeries")) System.out.print(TraktImportPolicy.shortlistSeries(a[1], Integer.parseInt(a[2]), a[3], Integer.parseInt(a[4])));
+    if (a[0].equals("confirmedSibling")) System.out.print(TraktImportPolicy.confirmedSibling(a[1], Integer.parseInt(a[2]), a[3], Integer.parseInt(a[4])));
     if (a[0].equals("merge")) System.out.print(TraktImportPolicy.mergePosition(Long.parseLong(a[1]),Long.parseLong(a[2]),Double.parseDouble(a[3]),Boolean.parseBoolean(a[4])));
     if (a[0].equals("clock")) System.out.print(TraktImportPolicy.parseClockDurationMs(a[1]));
     if (a[0].equals("watchedDuration")) System.out.print(TraktImportPolicy.selectWatchedDuration(
@@ -55,6 +56,16 @@ public final class Harness {
         self.assertEqual(self.run_policy("shortlist", "Alien", "1979", "Alien", "2024").stdout, "false")
         self.assertEqual(self.run_policy("shortlistSeries", "\u200eIR | Among Us (2026) (US)", "2026", "Among Us", "2026").stdout, "true")
 
+    def test_confirmed_sibling_requires_exact_normalized_title_and_known_equal_year(self):
+        self.assertEqual(self.run_policy("confirmedSibling", "AR-DUB - Despicable Me 4 (2024)", "2024", "Despicable Me 4", "2024").stdout, "true")
+        self.assertEqual(self.run_policy("confirmedSibling", "4K-AR - Despicable Me 4 (2024)", "2024", "Despicable Me 4", "2024").stdout, "true")
+        self.assertEqual(self.run_policy("confirmedSibling", "GR - Despicable Me 4 GR Audio (2024)", "2024", "Despicable Me 4", "2024").stdout, "true")
+        self.assertEqual(self.run_policy("confirmedSibling", "IR - Despicable Me 4 (2024) من نفرت انگیز ۴", "2024", "Despicable Me 4", "2024").stdout, "true")
+        self.assertEqual(self.run_policy("confirmedSibling", "\u200eIR | Among Us (2026) (US)", "2026", "Among Us", "2026").stdout, "true")
+        self.assertEqual(self.run_policy("confirmedSibling", "Among Us (2023)", "2023", "Among Us", "2026").stdout, "false")
+        self.assertEqual(self.run_policy("confirmedSibling", "Among Us", "0", "Among Us", "2026").stdout, "false")
+        self.assertEqual(self.run_policy("confirmedSibling", "Among Us: Aftershow (2026)", "2026", "Among Us", "2026").stdout, "false")
+
     def test_indexed_shortlist_preserves_title_and_year_semantics(self):
         targets = ("Amélie (2001)", "2001", "Alien", "1979", "Arrival", "0")
         cases = (
@@ -79,17 +90,21 @@ public final class Harness {
         for invalid in ("24:00:00", "01:60:00", "01:00:60", "-1:00:00", "999999999999999999:00:00", "1:2"):
             self.assertEqual(self.run_policy("clock", invalid).stdout, "0")
 
-    def test_monotonic_merge_and_watched_dominance(self):
+    def test_monotonic_merge_and_native_watched_marker(self):
         self.assertEqual(self.run_policy("merge", "60000", "100000", "25", "false").stdout, "60000")
         self.assertEqual(self.run_policy("merge", "10000", "100000", "25", "false").stdout, "25000")
-        self.assertEqual(self.run_policy("merge", "10000", "100000", "2", "true").stdout, "100000")
+        # TiviMate hides its native progress marker at exact position == duration.
+        # One millisecond below duration renders a visually full native watched line.
+        self.assertEqual(self.run_policy("merge", "10000", "100000", "2", "true").stdout, "99999")
+        self.assertEqual(self.run_policy("merge", "100000", "100000", "100", "true").stdout, "99999")
         self.assertEqual(self.run_policy("merge", "10000", "0", "100", "true").stdout, "10000")
         self.assertEqual(self.run_policy("merge", "120000", "100000", "25", "false").stdout, "120000")
-        self.assertEqual(self.run_policy("merge", "120000", "100000", "2", "true").stdout, "120000")
+        self.assertEqual(self.run_policy("merge", "120000", "100000", "2", "true").stdout, "99999")
 
-    def test_watched_duration_rejects_corrupt_provider_and_local_values(self):
+    def test_watched_duration_prefers_bounded_provider_stream_duration(self):
         self.assertEqual(self.run_policy("watchedDuration", "110000", "110000", "6300000").stdout, "6300000")
-        self.assertEqual(self.run_policy("watchedDuration", "6000000", "5640000", "6300000").stdout, "6000000")
+        self.assertEqual(self.run_policy("watchedDuration", "6000000", "5640000", "6300000").stdout, "5640000")
+        self.assertEqual(self.run_policy("watchedDuration", "1398000", "784000", "1380000").stdout, "784000")
         self.assertEqual(self.run_policy("watchedDuration", "0", "5640000", "6300000").stdout, "5640000")
         self.assertEqual(self.run_policy("watchedDuration", "0", "0", "6300000").stdout, "6300000")
 

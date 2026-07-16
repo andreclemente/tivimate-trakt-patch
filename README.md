@@ -4,7 +4,7 @@ Morphe patch bundle adding native Trakt Device Authorization and runtime movie/e
 
 ## Current release
 
-- Version: `0.1.59`
+- Version: `0.1.60`
 - Manager source: `https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/patches-bundle.json`
 - Target: TiviMate 5.1.6 (`versionCode 5161`)
 - Patches:
@@ -50,7 +50,7 @@ Patch verification requires a legally obtained TiviMate 5.1.6 APK and Morphe CLI
 ```sh
 java -jar morphe-cli.jar patch \
   --exclusive \
-  -p=dist/patches-0.1.59.mpp \
+  -p=dist/patches-0.1.60.mpp \
   -e='TiviMate Trakt settings/login' \
   -e='TiviMate Trakt runtime progress sync' \
   -o=patched.apk \

@@ -110,7 +110,6 @@ public final class TraktDeviceAuth {
     }
 
     public static void open(final Context context) {
-        android.util.Log.i("TiviMateTrakt", "device authorization entry");
         if (isConnected(context)) {
             final AuthDialog connected = new AuthDialog(context);
             connected.showConnected(context, new Runnable() {

@@ -38,10 +38,17 @@ public final class TraktImportPolicy {
     public static String normalizedTitle(String value) {
         if (value == null) return "";
         String cleaned = value.replaceAll("\\p{Cf}+", "")
-                .replaceFirst("(?i)^\\s*(?:[a-z]{2,4}(?:/[a-z]{2,4})?|top|ar-subs)\\s*[-:|–—]\\s*", "");
+                // Catalog/language labels such as IN-TU, AR-DUB, AR-SUBS and 4K-AR are
+                // not part of the media title. Keep this deliberately limited to short
+                // code segments before an explicit catalog separator.
+                .replaceFirst("(?i)^\\s*(?:(?:[a-z0-9]{1,4})(?:[-/][a-z0-9]{1,4})*|top)\\s*[-:|–—]\\s*", "")
+                .replaceFirst("(?i)\\s+[a-z]{2,3}\\s+audio(?=\\s*\\((?:19|20)[0-9]{2}\\))", "")
+                // A parenthesized catalog year is a boundary; providers often append a
+                // country code, localized script, or display alias after it.
+                .replaceFirst("\\s*\\((?:19|20)[0-9]{2}\\).*$", "");
         String ascii = Normalizer.normalize(cleaned, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").toLowerCase(Locale.US)
-                .replaceFirst("\\s*\\(?(?:19|20)[0-9]{2}\\)?(?:\\s*\\([a-z]{2,3}\\))?\\s*$", "");
+                .replaceFirst("\\s*(?:19|20)[0-9]{2}(?:\\s*\\([a-z]{2,3}\\))?\\s*$", "");
         return ascii.replaceAll("[^a-z0-9]+", " ").trim().replaceAll(" +", " ");
     }
 
@@ -56,6 +63,17 @@ public final class TraktImportPolicy {
         // Series year labels are frequently announcement/catalog years. Stable provider
         // identity remains mandatory before any write.
         return normalizedTitle(localTitle).equals(normalizedTitle(remoteTitle));
+    }
+
+    /**
+     * A stable-ID-confirmed catalog entry authorizes provider siblings only when both
+     * carry the same normalized title and the same explicit year. This deliberately
+     * fails closed for unknown years so remakes and same-title series cannot leak state.
+     */
+    public static boolean confirmedSibling(String localTitle, int localYear,
+                                           String remoteTitle, int remoteYear) {
+        return localYear > 0 && remoteYear > 0 && localYear == remoteYear
+                && normalizedTitle(localTitle).equals(normalizedTitle(remoteTitle));
     }
 
     /** Immutable normalized-title lookup with the same matching rules as {@link #shortlist}. */
@@ -141,13 +159,19 @@ public final class TraktImportPolicy {
         }
     }
 
-    /** Prefer native/provider duration only when plausible against Trakt's full runtime. */
+    /** Prefer the provider's bounded stream duration; Trakt runtimes are often nominal. */
     public static long selectWatchedDuration(long localDuration, long providerDuration,
                                              long traktDuration) {
         long trusted = traktDuration > 0L && traktDuration < 86_400_000L ? traktDuration : 0L;
+        // Xtream duration_secs describes the actual provider asset. A provider may carry
+        // a shortened cut (for example 13 minutes versus Trakt's nominal 23), and TiviMate
+        // only renders native completion against that real stream duration.
+        if (providerDuration >= 300_000L && providerDuration < 86_400_000L) {
+            return providerDuration;
+        }
         if (trusted == 0L) return localDuration > 0L ? localDuration : Math.max(0L, providerDuration);
-        if (plausibleDuration(localDuration, trusted)) return localDuration;
         if (plausibleDuration(providerDuration, trusted)) return providerDuration;
+        if (plausibleDuration(localDuration, trusted)) return localDuration;
         return trusted;
     }
 
@@ -155,13 +179,16 @@ public final class TraktImportPolicy {
         return candidate > 0L && candidate >= trusted / 2L && candidate <= trusted * 2L;
     }
 
-    /** Watched dominates; otherwise progress can only move forward. */
+    /** Unwatched progress is monotonic; watched uses TiviMate's visible native marker state. */
     public static long mergePosition(long localPosition, long duration,
                                      double remotePercent, boolean watched) {
         long safeLocal = Math.max(0L, localPosition);
         long safeDuration = Math.max(0L, duration);
         if (safeDuration == 0L) return safeLocal;
-        if (watched) return Math.max(safeLocal, safeDuration);
+        // At exact equality TiviMate suppresses the card's native progress line. Keeping
+        // the position one millisecond below duration renders a visually full watched
+        // marker while remaining >99.99% complete for Trakt/native completion semantics.
+        if (watched) return safeDuration > 1L ? safeDuration - 1L : safeDuration;
         double bounded = Math.max(0.0d, Math.min(100.0d, remotePercent));
         long remote = Math.round(safeDuration * bounded / 100.0d);
         return Math.max(safeLocal, remote);

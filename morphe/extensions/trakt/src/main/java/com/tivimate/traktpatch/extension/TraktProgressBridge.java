@@ -49,7 +49,6 @@ public final class TraktProgressBridge {
                         database = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY);
                         for (String table : TABLES) SNAPSHOTS.put(table, readRows(database, table));
                     }
-                    Log.i(TAG, "startup progress baseline ready");
                 } catch (RuntimeException error) {
                     Log.w(TAG, "startup baseline failed type=" + error.getClass().getSimpleName());
                 } finally {
@@ -94,27 +93,36 @@ public final class TraktProgressBridge {
      * import commit and reconciliation, and that newer value must remain exportable.
      */
     public static void mergeExpectedRowsAfterImport(Set<String> movieRows,
-                                                    Set<String> episodeRows) {
+                                                    Set<String> episodeRows,
+                                                    Set<String> removedEpisodeIdentities) {
         try {
             synchronized (SNAPSHOTS) {
-                mergeExpectedRows("movies", movieRows);
-                mergeExpectedRows("episode_last_played_positions", episodeRows);
+                mergeExpectedRows("movies", movieRows, Collections.<String>emptySet());
+                mergeExpectedRows("episode_last_played_positions", episodeRows,
+                        removedEpisodeIdentities);
             }
         } catch (RuntimeException error) {
             Log.w(TAG, "import baseline merge failed type=" + error.getClass().getSimpleName());
         }
     }
 
-    private static void mergeExpectedRows(String table, Set<String> expectedRows) {
-        if (expectedRows == null || expectedRows.isEmpty()) return;
+    private static void mergeExpectedRows(String table, Set<String> expectedRows,
+                                          Set<String> removedIdentities) {
+        if ((expectedRows == null || expectedRows.isEmpty())
+                && (removedIdentities == null || removedIdentities.isEmpty())) return;
         List<String> previous = SNAPSHOTS.get(table);
         List<String> merged = previous == null ? new ArrayList<String>() : new ArrayList<>(previous);
         Set<String> keys = new HashSet<>();
-        for (String row : expectedRows) if (row != null) keys.add(rowIdentity(row, table));
+        if (removedIdentities != null) keys.addAll(removedIdentities);
+        if (expectedRows != null) {
+            for (String row : expectedRows) if (row != null) keys.add(rowIdentity(row, table));
+        }
         for (int index = merged.size() - 1; index >= 0; index--) {
             if (keys.contains(rowIdentity(merged.get(index), table))) merged.remove(index);
         }
-        for (String row : expectedRows) if (row != null) merged.add(row);
+        if (expectedRows != null) {
+            for (String row : expectedRows) if (row != null) merged.add(row);
+        }
         Collections.sort(merged);
         SNAPSHOTS.put(table, merged);
     }
@@ -154,7 +162,6 @@ public final class TraktProgressBridge {
         Set<String> after = new HashSet<>(current);
         List<String> added = new ArrayList<>(after);
         added.removeAll(before);
-        Log.i(TAG, "progress changed table=" + table + " count=" + added.size());
         if ("movies".equals(table)) resolveMovieMetadata(database, added);
         if ("episode_last_played_positions".equals(table)) resolveEpisodeMetadata(database, added);
     }
