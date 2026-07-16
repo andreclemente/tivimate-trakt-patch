@@ -1,6 +1,6 @@
 # TiviMate Trakt Sync Patch
 
-Morphe patch bundle adding native Trakt Device Authorization and runtime movie/episode progress sync to TiviMate 8K Pro 5.1.6 (`ar.tvplayer.tv`).
+Morphe patch bundle adding native Trakt Device Authorization and runtime movie/episode progress sync to TiviMate 5.1.6 (`ar.tvplayer.tv`).
 
 ## Current release
 
@@ -56,7 +56,7 @@ java -jar morphe-cli.jar patch \
   -e='TiviMate Trakt settings/login' \
   -e='TiviMate Trakt runtime progress sync' \
   -o=patched.apk \
-  Tivi8KPro.apk
+  TiviMate.apk
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) and [`docs/verification.md`](docs/verification.md).

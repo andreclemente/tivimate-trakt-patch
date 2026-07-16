@@ -216,6 +216,18 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('movie and episode playback progress sync', source)
         self.assertNotIn('diagnostic patch', source)
 
+    def test_public_repository_text_uses_tivimate_product_name_only(self):
+        forbidden = (("8" + "k").casefold(), ("tivi" + "8").casefold())
+        text_suffixes = {".md", ".json", ".kt", ".java", ".py", ".properties", ".yml", ".yaml"}
+        violations = []
+        for path in ROOT.rglob("*"):
+            if not path.is_file() or ".git" in path.parts or path.suffix.casefold() not in text_suffixes:
+                continue
+            text = path.read_text(errors="ignore").casefold()
+            if any(term in text for term in forbidden):
+                violations.append(str(path.relative_to(ROOT)))
+        self.assertEqual([], violations, f"non-TiviMate product references: {violations}")
+
     def test_manager_descriptor_uses_local_datetime_without_timezone_suffix(self):
         descriptor = json.loads(PATCH_BUNDLE_DESCRIPTOR.read_text())
         self.assertRegex(
