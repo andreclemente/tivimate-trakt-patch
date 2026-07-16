@@ -110,13 +110,19 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("target.traktDurationMs", source)
         self.assertEqual(source.count("TraktImportPolicy.selectWatchedDuration("), 2)
 
-    def test_episode_import_reconciles_provider_rows_to_authoritative_trakt_set(self):
+    def test_episode_import_reconciles_only_complete_authoritative_watched_sets(self):
         source = COORDINATOR.read_text()
         self.assertIn("providerEpisodeIds", source)
         self.assertIn("reconcileEpisodes(database, matches, removedEpisodes)", source)
         self.assertIn('database.delete("episode_last_played_positions"', source)
         self.assertIn('parent.put("last_episode_xc_id", preferredEpisodeId)', source)
         self.assertIn("removedEpisodeIdentities", BRIDGE.read_text())
+        self.assertIn("target.authoritativeSeriesSet = true", source)
+        self.assertIn("state.authoritativeMaterialized", source)
+        self.assertIn("if (!state.authoritativeMaterialized || !state.complete", source)
+        playback = source[source.index("private static void addPlayback("):
+                          source.index("private static Target mediaTarget(")]
+        self.assertNotIn("target.authoritativeSeriesSet = true", playback)
 
     def test_title_is_only_a_shortlist_and_provider_stable_id_confirms(self):
         source = COORDINATOR.read_text()
@@ -140,7 +146,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         insert = source[source.index('database.insert("episode_last_played_positions"'):]
         self.assertNotIn('values.put("id"', insert)
 
-    def test_import_does_not_echo_and_temporary_schema_logging_is_removed(self):
+    def test_import_commit_and_expected_baseline_merge_are_atomic_against_capture(self):
         coordinator = COORDINATOR.read_text()
         bridge = BRIDGE.read_text()
         self.assertIn("mergeExpectedRowsAfterImport", coordinator)
@@ -154,6 +160,16 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("IMPORT_WRITE.remove()", bridge)
         self.assertNotIn("IMPORT_CAPTURE", bridge)
         self.assertIn("if (commitRequested)", coordinator)
+        self.assertIn("ReentrantLock CAPTURE_EPOCH", bridge)
+        self.assertIn("CAPTURE_EPOCH.lock()", bridge)
+        self.assertIn("CAPTURE_EPOCH.unlock()", bridge)
+        begin = coordinator.index("TraktProgressBridge.beginImportWrite()")
+        commit = coordinator.index("database.endTransaction()", begin)
+        merge = coordinator.index("TraktProgressBridge.mergeExpectedRowsAfterImport(", commit)
+        end = coordinator.index("TraktProgressBridge.endImportWrite()", merge)
+        self.assertLess(begin, commit)
+        self.assertLess(commit, merge)
+        self.assertLess(merge, end)
         self.assertNotIn("logSchema", bridge)
         self.assertNotIn("schema table=", bridge)
 
@@ -194,13 +210,24 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertNotIn("scan.match.candidate.catalogOrder", source)
         self.assertNotIn("scan.match = match", source)
 
-    def test_one_stable_id_confirmation_authorizes_exact_title_year_siblings(self):
+    def test_every_duplicate_requires_its_own_nonconflicting_stable_id_match(self):
         source = COORDINATOR.read_text()
-        self.assertIn("Set<Target> confirmedTargets", source)
-        self.assertIn("confirmedTargets.add(scan.target)", source)
-        self.assertIn("TraktImportPolicy.confirmedSibling(candidate.title, candidate.year,", source)
+        apply = source[source.index("private static void applyResolutions("):
+                       source.index("private static boolean shortlisted(")]
+        self.assertNotIn("confirmedTargets", apply)
+        self.assertNotIn("confirmedSibling", apply)
+        self.assertIn("if (!stableMatch) continue;", apply)
+        self.assertIn("!identity.conflict && TraktImportPolicy.sameStableId", apply)
         self.assertIn("applyResolutions(states, resolutions)", source)
         self.assertIn("matches.addAll(scan.matches)", source)
+
+    def test_duration_only_rows_are_never_exported_for_movies_or_episodes(self):
+        bridge = BRIDGE.read_text()
+        read_rows = bridge[bridge.index("private static List<String> readRows") :]
+        self.assertIn("FROM movies WHERE last_played_position_ms > 0", read_rows)
+        self.assertNotIn("last_played_position_ms > 0 OR duration_ms > 0", read_rows)
+        self.assertIn("FROM episode_last_played_positions WHERE position_ms > 0", read_rows)
+        self.assertEqual(bridge.count("if (positionMs <= 0L) continue;"), 2)
 
     def test_provider_failures_propagate_before_database_writes(self):
         source = COORDINATOR.read_text()

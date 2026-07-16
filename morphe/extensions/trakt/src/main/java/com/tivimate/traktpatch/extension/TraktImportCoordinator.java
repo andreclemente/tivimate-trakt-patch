@@ -18,7 +18,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -578,6 +577,7 @@ public final class TraktImportCoordinator {
                     if (target != null && episodeNumber > 0) {
                         target.season = seasonNumber;
                         target.episode = episodeNumber;
+                        target.authoritativeSeriesSet = true;
                         put(targets, target);
                     }
                 }
@@ -642,6 +642,7 @@ public final class TraktImportCoordinator {
             Target existing = priority.get(entry.getKey());
             if (existing == null) continue;
             if (entry.getValue().watched) existing.watched = true;
+            existing.authoritativeSeriesSet |= entry.getValue().authoritativeSeriesSet;
             existing.progress = Math.max(existing.progress, entry.getValue().progress);
             existing.traktDurationMs = Math.max(existing.traktDurationMs,
                     entry.getValue().traktDurationMs);
@@ -763,9 +764,8 @@ public final class TraktImportCoordinator {
         }
 
         applyResolutions(states, resolutions);
-        // Category, target, and catalog insertion order determine write order. A target
-        // first requires one provider stable-ID confirmation. Exact title/year provider
-        // siblings then receive native state with their own movie/episode IDs.
+        // Category, target, and catalog insertion order determine write order. Every
+        // provider duplicate must independently confirm the target's stable identity.
         for (CategoryState state : states) for (TargetScan scan : state.scans) {
             matches.addAll(scan.matches);
         }
@@ -774,24 +774,8 @@ public final class TraktImportCoordinator {
 
     private static void applyResolutions(List<CategoryState> states,
                                          List<Resolution> resolutions) {
-        Set<Target> confirmedTargets = java.util.Collections.newSetFromMap(
-                new IdentityHashMap<Target, Boolean>());
-        // Pass one: a provider stable ID must independently authorize each Trakt target.
-        for (Resolution resolution : resolutions) {
-            JSONObject info = resolution.provider.optJSONObject("info");
-            JSONObject movie = resolution.provider.optJSONObject("movie_data");
-            ProviderIdentity identity = providerIdentity(info, movie);
-            for (CategoryState state : states) for (TargetScan scan : state.scans) {
-                if (("movie".equals(scan.target.type)) != resolution.movie
-                        || !shortlisted(resolution.candidate, scan.target)) continue;
-                boolean stableMatch = !identity.conflict && TraktImportPolicy.sameStableId(
-                        scan.target.tmdb, scan.target.imdb, identity.tmdb, identity.imdb);
-                if (stableMatch) confirmedTargets.add(scan.target);
-            }
-        }
-
-        // Pass two: use every candidate's own provider payload. This is essential for
-        // series because episode_xc_id is provider-specific even between duplicate shows.
+        // Every catalog duplicate is independently authorized by its own provider IDs.
+        // Title/year remains only a network shortlist and can never override conflicting IDs.
         for (Resolution resolution : resolutions) {
             JSONObject info = resolution.provider.optJSONObject("info");
             JSONObject movie = resolution.provider.optJSONObject("movie_data");
@@ -803,10 +787,7 @@ public final class TraktImportCoordinator {
                         || !shortlisted(candidate, target)) continue;
                 boolean stableMatch = !identity.conflict && TraktImportPolicy.sameStableId(
                         target.tmdb, target.imdb, identity.tmdb, identity.imdb);
-                boolean siblingMatch = confirmedTargets.contains(target)
-                        && TraktImportPolicy.confirmedSibling(candidate.title, candidate.year,
-                        target.title, target.year);
-                if (!stableMatch && !siblingMatch) continue;
+                if (!stableMatch) continue;
 
                 Match match = new Match();
                 match.candidate = candidate;
@@ -918,8 +899,9 @@ public final class TraktImportCoordinator {
                 bySeries.put(match.candidate.id, state);
             }
             state.providerIds.addAll(match.providerEpisodeIds);
+            if (match.target.authoritativeSeriesSet) state.authoritativeMaterialized = true;
             if (!match.episodeXcId.matches("[0-9]+")) {
-                state.complete = false;
+                if (match.target.authoritativeSeriesSet) state.complete = false;
             } else {
                 state.keepIds.add(match.episodeXcId);
                 if (state.preferredEpisodeId.isEmpty()) {
@@ -930,7 +912,8 @@ public final class TraktImportCoordinator {
 
         int changed = 0;
         for (SeriesReconciliation state : bySeries.values()) {
-            if (!state.complete || state.providerIds.isEmpty() || state.keepIds.isEmpty()) continue;
+            if (!state.authoritativeMaterialized || !state.complete
+                    || state.providerIds.isEmpty() || state.keepIds.isEmpty()) continue;
             List<Long> staleRows = new ArrayList<>();
             List<String> staleEpisodeIds = new ArrayList<>();
             Cursor rows = database.rawQuery(
@@ -1206,6 +1189,7 @@ public final class TraktImportCoordinator {
         String type, tmdb, imdb, title;
         int year, season, episode;
         boolean watched;
+        boolean authoritativeSeriesSet;
         double progress;
         long traktDurationMs;
         String key() { return type + ':' + (!tmdb.isEmpty() ? "tmdb:" + tmdb : "imdb:" + imdb) + ':' + season + ':' + episode; }
@@ -1225,6 +1209,7 @@ public final class TraktImportCoordinator {
         final Set<String> keepIds = new HashSet<>();
         String preferredEpisodeId = "";
         boolean complete = true;
+        boolean authoritativeMaterialized;
 
         SeriesReconciliation(long seriesId) { this.seriesId = seriesId; }
     }

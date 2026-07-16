@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Runtime bridge from committed playback state to asynchronous metadata
@@ -26,6 +27,8 @@ public final class TraktProgressBridge {
     private static final ExecutorService CAPTURE = Executors.newSingleThreadExecutor();
     private static final Map<String, List<String>> SNAPSHOTS = new HashMap<>();
     private static final Object SCHEDULE_LOCK = new Object();
+    /** Serializes a committed import plus baseline merge against outbound reads. */
+    private static final ReentrantLock CAPTURE_EPOCH = new ReentrantLock();
     private static final ThreadLocal<Boolean> IMPORT_WRITE = new ThreadLocal<>();
     private static SQLiteDatabase pendingDatabase;
     private static boolean pending;
@@ -41,13 +44,18 @@ public final class TraktProgressBridge {
                 SQLiteDatabase database = null;
                 try {
                     java.io.File file = new java.io.File(path);
-                    synchronized (SNAPSHOTS) {
-                        if (!file.isFile()) {
-                            for (String table : TABLES) SNAPSHOTS.put(table, Collections.<String>emptyList());
-                            return;
+                    CAPTURE_EPOCH.lock();
+                    try {
+                        synchronized (SNAPSHOTS) {
+                            if (!file.isFile()) {
+                                for (String table : TABLES) SNAPSHOTS.put(table, Collections.<String>emptyList());
+                                return;
+                            }
+                            database = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY);
+                            for (String table : TABLES) SNAPSHOTS.put(table, readRows(database, table));
                         }
-                        database = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY);
-                        for (String table : TABLES) SNAPSHOTS.put(table, readRows(database, table));
+                    } finally {
+                        CAPTURE_EPOCH.unlock();
                     }
                 } catch (RuntimeException error) {
                     Log.w(TAG, "startup baseline failed type=" + error.getClass().getSimpleName());
@@ -79,12 +87,14 @@ public final class TraktProgressBridge {
 
     /** Scopes hook suppression to the current direct import transaction. */
     public static void beginImportWrite() {
+        CAPTURE_EPOCH.lock();
         IMPORT_WRITE.set(Boolean.TRUE);
     }
 
     /** Clears thread state on success, rollback, and begin/end failure paths. */
     public static void endImportWrite() {
         IMPORT_WRITE.remove();
+        CAPTURE_EPOCH.unlock();
     }
 
     /**
@@ -143,12 +153,15 @@ public final class TraktProgressBridge {
                 pending = false;
                 database = pendingDatabase;
             }
+            CAPTURE_EPOCH.lock();
             try {
                 synchronized (SNAPSHOTS) {
                     for (String table : TABLES) capture(database, table);
                 }
             } catch (RuntimeException error) {
                 Log.w(TAG, "capture failed type=" + error.getClass().getSimpleName());
+            } finally {
+                CAPTURE_EPOCH.unlock();
             }
         }
     }
@@ -172,6 +185,7 @@ public final class TraktProgressBridge {
             String xcId = rowValue(row, "xc_id");
             long positionMs = positiveLong(rowValue(row, "last_played_position_ms"));
             long durationMs = positiveLong(rowValue(row, "duration_ms"));
+            if (positionMs <= 0L) continue;
             if (playlistId == null || xcId == null || "null".equals(xcId)) continue;
             Cursor cursor = database.rawQuery(
                     "SELECT url FROM playlists WHERE id = ? LIMIT 1", new String[]{playlistId});
@@ -191,6 +205,7 @@ public final class TraktProgressBridge {
             String episodeXcId = rowValue(row, "episode_xc_id");
             long positionMs = positiveLong(rowValue(row, "position_ms"));
             long durationMs = positiveLong(rowValue(row, "duration_ms"));
+            if (positionMs <= 0L) continue;
             if (seriesId == null || episodeXcId == null || "null".equals(episodeXcId)) continue;
             Cursor cursor = database.rawQuery(
                     "SELECT s.xc_id, p.url FROM series s JOIN playlists p ON p.id = s.playlist_id "
@@ -228,9 +243,9 @@ public final class TraktProgressBridge {
     private static List<String> readRows(SQLiteDatabase database, String table) {
         String query = "movies".equals(table)
                 ? "SELECT id, playlist_id, xc_id, last_played_position_ms, duration_ms "
-                    + "FROM movies WHERE last_played_position_ms > 0 OR duration_ms > 0"
+                    + "FROM movies WHERE last_played_position_ms > 0"
                 : "SELECT id, series_id, episode_xc_id, position_ms, duration_ms "
-                    + "FROM episode_last_played_positions";
+                    + "FROM episode_last_played_positions WHERE position_ms > 0";
         Cursor cursor = database.rawQuery(query, null);
         try {
             String[] columns = cursor.getColumnNames();
