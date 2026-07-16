@@ -11,10 +11,18 @@ public final class NativeTraktPreference extends Preference {
     public NativeTraktPreference(Context context) {
         super(context, null);
         this.context = context;
+        refreshState();
+    }
+
+    private void refreshState() {
+        boolean connected = TraktDeviceAuth.isConnected(context);
+        setTitle(connected ? "Trakt (Connected)" : "Trakt");
+        setSummary(connected ? "Account connected — watched-progress sync active"
+                : "Connect your Trakt account");
     }
 
     // Keep the proven native click path that opens the authorization dialog.
     public void ˏᴵ() {
-        TraktDeviceAuth.open(context);
+        TraktDeviceAuth.open(context, this::refreshState);
     }
 }

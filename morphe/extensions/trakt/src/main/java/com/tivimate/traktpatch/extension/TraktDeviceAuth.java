@@ -47,9 +47,14 @@ public final class TraktDeviceAuth {
             "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/token";
     private static final String CLIENT_URL =
             "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/client";
+    private static final String REVOKE_URL =
+            "https://tivimate-trakt-oauth.andreclemente.workers.dev/v1/revoke";
     private static final int MAX_RESPONSE_CHARS = 1_000_000;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ExecutorService NETWORK = Executors.newSingleThreadExecutor();
+    private static final Object AUTH_LOCK = new Object();
+    private static final Object REFRESH_LOCK = new Object();
+    private static long AUTH_GENERATION;
 
     private TraktDeviceAuth() { }
 
@@ -57,10 +62,18 @@ public final class TraktDeviceAuth {
         return new TokenStore(context).hasValidToken();
     }
 
-    static synchronized String accessToken(Context context) {
+    static String accessToken(Context context) {
         TokenStore store = new TokenStore(context);
         if (store.storedTokenStillValid()) return store.accessToken();
         return refreshAccessToken(store);
+    }
+
+    static String forceRefresh(Context context) {
+        return refreshAccessToken(new TokenStore(context));
+    }
+
+    private static long generation() {
+        synchronized (AUTH_LOCK) { return AUTH_GENERATION; }
     }
 
     /** Returns the public API key, migrating already-encrypted token records on first use. */
@@ -80,24 +93,54 @@ public final class TraktDeviceAuth {
     }
 
     static void invalidateAccessToken(Context context) {
-        new TokenStore(context).clear();
+        // A resource-server 401 is not proof that the refresh token is invalid.
+        new TokenStore(context).expireAccessToken();
     }
 
     private static String refreshAccessToken(TokenStore store) {
-        String refreshToken = store.refreshToken();
-        if (refreshToken == null) return null;
-        try {
-            JSONObject request = new JSONObject();
-            request.put("refresh_token", refreshToken);
-            JSONObject token = requestWithRetry(DEVICE_REFRESH_URL, request);
-            store.save(token);
-            return store.accessToken();
-        } catch (DeviceAuthorizationException error) {
-            if (error.status == 400 || error.status == 401 || error.status == 403) store.clear();
-            return null;
-        } catch (Exception ignored) {
-            // Keep refresh token for a later network attempt.
-            return null;
+        synchronized (REFRESH_LOCK) {
+            long generation = generation();
+            String refreshToken = store.refreshToken();
+            if (refreshToken == null) return null;
+            try {
+                JSONObject request = new JSONObject();
+                request.put("refresh_token", refreshToken);
+                JSONObject token = requestWithRetry(DEVICE_REFRESH_URL, request);
+                if (!saveIfCurrent(store, token, generation)) return null;
+                return store.accessToken();
+            } catch (DeviceAuthorizationException error) {
+                if (isAuthoritativeInvalidRefresh(error)) clearIfCurrent(store, generation);
+                return null;
+            } catch (Exception ignored) {
+                // Keep both tokens for a later network attempt.
+                return null;
+            }
+        }
+    }
+
+    private static boolean isAuthoritativeInvalidRefresh(DeviceAuthorizationException error) {
+        return (error.status == 400 || error.status == 401)
+                && ("invalid_grant".equals(error.code) || "invalid_token".equals(error.code));
+    }
+
+    private static boolean saveIfCurrent(TokenStore store, JSONObject token, long generation)
+            throws Exception {
+        synchronized (AUTH_LOCK) {
+            if (generation == AUTH_GENERATION) {
+                store.save(token);
+                AUTH_GENERATION++;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    private static void clearIfCurrent(TokenStore store, long generation) {
+        synchronized (AUTH_LOCK) {
+            if (generation == AUTH_GENERATION) {
+                AUTH_GENERATION++;
+                store.clear();
+            }
         }
     }
 
@@ -109,19 +152,23 @@ public final class TraktDeviceAuth {
         return new SyncSettings(context).showsEnabled();
     }
 
-    public static void open(final Context context) {
+    public static void open(final Context context) { open(context, null); }
+
+    public static void open(final Context context, final Runnable stateChanged) {
         if (isConnected(context)) {
             final AuthDialog connected = new AuthDialog(context);
             connected.showConnected(context, new Runnable() {
                 @Override public void run() {
-                    new TokenStore(context).clear();
-                    new SyncSettings(context).clear();
-                    connected.dismiss();
-                    Toast.makeText(context, "Trakt disconnected", Toast.LENGTH_LONG).show();
+                    connected.confirmDisconnect(new Runnable() {
+                        @Override public void run() {
+                            disconnect(context, connected, stateChanged);
+                        }
+                    });
                 }
             });
             return;
         }
+        final long generation = generation();
         final AuthDialog dialog = new AuthDialog(context);
         dialog.show("Connect Trakt", "Requesting a Trakt activation code…");
         NETWORK.execute(new Runnable() {
@@ -140,7 +187,8 @@ public final class TraktDeviceAuth {
                             dialog.setMessage("On your phone or computer, open:\n\n"
                                     + verificationUrl + "\n\nand enter this code:\n\n" + userCode
                                     + "\n\nWaiting for approval…");
-                            poll(context, dialog, deviceCode, intervalSeconds * 1000L, expiresAt);
+                            poll(context, dialog, deviceCode, intervalSeconds * 1000L, expiresAt, generation,
+                                    stateChanged);
                         }
                     });
                 } catch (final Exception error) {
@@ -160,7 +208,8 @@ public final class TraktDeviceAuth {
     }
 
     private static void poll(final Context context, final AuthDialog dialog, final String deviceCode,
-                             final long delayMillis, final long expiresAt) {
+                             final long delayMillis, final long expiresAt, final long generation,
+                             final Runnable stateChanged) {
         if (!dialog.isShowing() || System.currentTimeMillis() >= expiresAt) {
             if (dialog.isShowing()) dialog.dismiss();
             Toast.makeText(context, "Trakt activation code expired", Toast.LENGTH_LONG).show();
@@ -172,11 +221,12 @@ public final class TraktDeviceAuth {
                     JSONObject request = new JSONObject();
                     request.put("code", deviceCode);
                     final JSONObject token = post(DEVICE_TOKEN_URL, request);
-                    new TokenStore(context).save(token);
+                    if (!saveIfCurrent(new TokenStore(context), token, generation)) return;
                     TraktImportCoordinator.initialize(context);
                     MAIN.post(new Runnable() {
                         @Override public void run() {
                             if (dialog.isShowing()) dialog.dismiss();
+                            if (stateChanged != null) stateChanged.run();
                             Toast.makeText(context, "Trakt connected", Toast.LENGTH_LONG).show();
                         }
                     });
@@ -187,7 +237,8 @@ public final class TraktDeviceAuth {
                                 ? delayMillis + 5000L : delayMillis;
                         MAIN.postDelayed(new Runnable() {
                             @Override public void run() {
-                                poll(context, dialog, deviceCode, nextDelay, expiresAt);
+                                poll(context, dialog, deviceCode, nextDelay, expiresAt, generation,
+                                        stateChanged);
                             }
                         }, nextDelay);
                         return;
@@ -205,9 +256,55 @@ public final class TraktDeviceAuth {
     }
 
     private static boolean isRetryableDeviceAuthorizationError(Exception error) {
+        if (error instanceof java.io.IOException) return true;
         if (!(error instanceof DeviceAuthorizationException)) return false;
-        String code = ((DeviceAuthorizationException) error).code;
-        return "authorization_pending".equals(code) || "slow_down".equals(code);
+        DeviceAuthorizationException authorization = (DeviceAuthorizationException) error;
+        String code = authorization.code;
+        return "authorization_pending".equals(code)
+                || "slow_down".equals(code)
+                || isRetryableStatus(authorization.status);
+    }
+
+    private static void disconnect(final Context context, final AuthDialog dialog,
+                                   final Runnable stateChanged) {
+        final String refreshToken = disconnectLocally(context);
+        dialog.dismiss();
+        if (stateChanged != null) stateChanged.run();
+        NETWORK.execute(new Runnable() {
+            @Override public void run() {
+                boolean revoked = false;
+                try {
+                    if (refreshToken != null) {
+                        JSONObject request = new JSONObject();
+                        request.put("token", refreshToken);
+                        post(REVOKE_URL, request);
+                    }
+                    revoked = true;
+                } catch (Exception ignored) {
+                    // Local disconnect is authoritative even if remote revocation is unavailable.
+                } finally {
+                    final boolean remoteRevoked = revoked;
+                    MAIN.post(new Runnable() {
+                        @Override public void run() {
+                            Toast.makeText(context, remoteRevoked ? "Trakt disconnected"
+                                    : "Trakt disconnected locally; remote revoke will need retry",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    private static String disconnectLocally(Context context) {
+        synchronized (AUTH_LOCK) {
+            AUTH_GENERATION++;
+            TokenStore store = new TokenStore(context);
+            String refreshToken = store.refreshToken();
+            store.clear();
+            new SyncSettings(context).clear();
+            return refreshToken;
+        }
     }
 
     private static JSONObject post(String endpoint, JSONObject payload) throws Exception {
@@ -373,6 +470,16 @@ public final class TraktDeviceAuth {
             }
         }
 
+        void confirmDisconnect(final Runnable disconnect) {
+            actions.removeAllViews();
+            text.setText("Disconnect Trakt?\n\nLocal credentials will be removed immediately.");
+            action.setText("Confirm disconnect");
+            action.setOnClickListener(v -> disconnect.run());
+            actions.addView(action, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            action.requestFocus();
+        }
+
         void showConnected(final Context context, final Runnable disconnect) {
             final SyncSettings settings = new SyncSettings(context);
             actions.removeAllViews();
@@ -510,14 +617,19 @@ public final class TraktDeviceAuth {
         }
 
         void save(JSONObject token) throws Exception {
+            JSONObject previous = stored();
             JSONObject stored = new JSONObject();
             stored.put("access_token", token.getString("access_token"));
-            stored.put("refresh_token", token.getString("refresh_token"));
+            String refreshToken = token.optString("refresh_token", "");
+            if (refreshToken.length() == 0 && previous != null) {
+                refreshToken = previous.optString("refresh_token", "");
+            }
+            if (refreshToken.length() == 0) throw new IllegalArgumentException("refresh token missing");
+            stored.put("refresh_token", refreshToken);
             stored.put("expires_in", token.optLong("expires_in", 0));
             stored.put("created_at", token.optLong("created_at", 0));
             String clientId = token.optString("client_id", "");
             if (clientId.length() == 0) {
-                JSONObject previous = stored();
                 clientId = previous == null ? "" : previous.optString("client_id", "");
             }
             if (clientId.length() > 0) stored.put("client_id", clientId);
@@ -532,6 +644,17 @@ public final class TraktDeviceAuth {
             stored.put("client_id", clientId);
             if (!preferences.edit().putString(TOKENS, encrypt(stored.toString())).commit()) {
                 throw new IllegalStateException("token storage failed");
+            }
+        }
+
+        void expireAccessToken() {
+            JSONObject stored = stored();
+            if (stored == null) return;
+            try {
+                stored.put("created_at", 0L);
+                preferences.edit().putString(TOKENS, encrypt(stored.toString())).commit();
+            } catch (Exception ignored) {
+                // Preserve the encrypted refresh token if expiration bookkeeping fails.
             }
         }
 

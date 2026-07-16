@@ -396,6 +396,8 @@ public final class TraktImportCoordinator {
         JSONArray shows = snapshot.shows;
         JSONArray playback = snapshot.playback;
         if (TraktDeviceAuth.showsEnabled(context)) {
+            token = TraktDeviceAuth.accessToken(context);
+            if (token == null) return;
             shows = enrichWatchedShows(shows, token, clientId, context,
                     localSeriesTitles(context));
         }
@@ -432,9 +434,11 @@ public final class TraktImportCoordinator {
     private static JSONArray fetch(String route, String token, String clientId, Context context) throws Exception {
         JSONArray result = new JSONArray();
         int pageCount = 1;
+        String currentToken = token;
+        boolean authRetried = false;
         for (int page = 1; page <= MAX_TRAKT_PAGES; page++) {
             boolean loaded = false;
-            for (int attempt = 0; attempt < 2; attempt++) {
+            for (int attempt = 0; attempt < 4; attempt++) {
                 HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route
                         + "&limit=100&page=" + page).openConnection();
                 try {
@@ -442,18 +446,24 @@ public final class TraktImportCoordinator {
                     connection.setRequestMethod("GET");
                     connection.setConnectTimeout(15_000);
                     connection.setReadTimeout(20_000);
-                    connection.setRequestProperty("Authorization", "Bearer " + token);
+                    connection.setRequestProperty("Authorization", "Bearer " + currentToken);
                     connection.setRequestProperty("trakt-api-key", clientId);
                     connection.setRequestProperty("trakt-api-version", "2");
                     connection.setRequestProperty("Accept", "application/json");
                     connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
                     int status = connection.getResponseCode();
-                    if (status == 401 || status == 403) {
-                        TraktDeviceAuth.invalidateAccessToken(context);
-                        Log.w(TAG, "import authorization rejected");
+                    if (status == 401 && !authRetried) {
+                        authRetried = true;
+                        currentToken = TraktDeviceAuth.forceRefresh(context);
+                        if (currentToken != null) continue;
+                        Log.w(TAG, "import refresh rejected");
                         return null;
                     }
-                    if (attempt == 0 && (status == 429 || status >= 500)) {
+                    if (status == 403) {
+                        Log.w(TAG, "import forbidden");
+                        return null;
+                    }
+                    if (attempt < 3 && (status == 429 || status >= 500)) {
                         Thread.sleep(1000L);
                         continue;
                     }
@@ -604,7 +614,9 @@ public final class TraktImportCoordinator {
 
     private static JSONObject fetchObject(String route, String token, String clientId,
                                           Context context) throws Exception {
-        for (int attempt = 0; attempt < 3; attempt++) {
+        String currentToken = token;
+        boolean authRetried = false;
+        for (int attempt = 0; attempt < 4; attempt++) {
             HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + route)
                     .openConnection();
             try {
@@ -612,18 +624,24 @@ public final class TraktImportCoordinator {
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(15_000);
                 connection.setReadTimeout(20_000);
-                connection.setRequestProperty("Authorization", "Bearer " + token);
+                connection.setRequestProperty("Authorization", "Bearer " + currentToken);
                 connection.setRequestProperty("trakt-api-key", clientId);
                 connection.setRequestProperty("trakt-api-version", "2");
                 connection.setRequestProperty("Accept", "application/json");
                 connection.setRequestProperty("User-Agent", "TiviMate-Trakt-Patch/1.0");
                 int status = connection.getResponseCode();
-                if (status == 401 || status == 403) {
-                    TraktDeviceAuth.invalidateAccessToken(context);
-                    Log.w(TAG, "import authorization rejected");
+                if (status == 401 && !authRetried) {
+                    authRetried = true;
+                    currentToken = TraktDeviceAuth.forceRefresh(context);
+                    if (currentToken != null) continue;
+                    Log.w(TAG, "import refresh rejected");
                     return null;
                 }
-                if (attempt < 2 && (status == 429 || status >= 500)) {
+                if (status == 403) {
+                    Log.w(TAG, "import forbidden");
+                    return null;
+                }
+                if (attempt < 3 && (status == 429 || status >= 500)) {
                     Thread.sleep((attempt + 1L) * 1000L);
                     continue;
                 }
@@ -632,7 +650,7 @@ public final class TraktImportCoordinator {
                 }
                 return new JSONObject(readText(connection.getInputStream()));
             } catch (IOException error) {
-                if (attempt < 2) {
+                if (attempt < 3) {
                     Thread.sleep((attempt + 1L) * 1000L);
                     continue;
                 }

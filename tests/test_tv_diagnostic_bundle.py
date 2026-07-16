@@ -28,7 +28,7 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         native = (ROOT / 'morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/NativeTraktPreference.java').read_text()
         self.assertIn('public void ˏᴵ()', native)
         self.assertNotIn('public void ʿˏ(View view)', native)
-        self.assertIn('TraktDeviceAuth.open(context)', native)
+        self.assertIn('TraktDeviceAuth.open(context, this::refreshState)', native)
         auth = (ROOT / 'morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktDeviceAuth.java').read_text()
         self.assertIn('void clear()', auth)
         self.assertIn('Disconnect Trakt', auth)

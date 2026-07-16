@@ -6,6 +6,8 @@ JAVA = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/ext
 COORDINATOR = JAVA / "TraktImportCoordinator.java"
 BRIDGE = JAVA / "TraktProgressBridge.java"
 AUTH = JAVA / "TraktDeviceAuth.java"
+SYNC = JAVA / "TraktSyncClient.java"
+PREFERENCE = JAVA / "NativeTraktPreference.java"
 EXTENSION = JAVA / "TraktPatchExtension.java"
 
 
@@ -17,7 +19,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         for route in ("/sync/watched/movies", "/sync/watched/shows", "/sync/playback"):
             self.assertIn(route, source)
         self.assertIn('setRequestMethod("GET")', source)
-        self.assertIn('"Bearer " + token', source)
+        self.assertIn('"Bearer " + currentToken', source)
         self.assertIn('setRequestProperty("trakt-api-key", clientId)', source)
         self.assertIn('setRequestProperty("trakt-api-version", "2")', source)
         self.assertIn("TraktDeviceAuth.clientId(context)", source)
@@ -29,6 +31,56 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         source = AUTH.read_text()
         self.assertIn('workers.dev/v1/token"', source)
         self.assertNotIn('workers.dev/v1/device/refresh"', source)
+
+    def test_auth_disconnect_revokes_remotely_but_always_clears_locally(self):
+        source = AUTH.read_text()
+        self.assertIn('workers.dev/v1/revoke"', source)
+        self.assertIn('confirmDisconnect', source)
+        self.assertIn('disconnectLocally', source)
+        self.assertIn('NETWORK.execute', source)
+        self.assertIn('request.put("token", refreshToken)', source)
+        self.assertIn('finally', source)
+        self.assertIn('stateChanged.run()', source)
+
+    def test_disconnect_generation_prevents_stale_login_or_refresh_save(self):
+        source = AUTH.read_text()
+        self.assertIn('AUTH_GENERATION', source)
+        self.assertIn('REFRESH_LOCK', source)
+        self.assertIn('generation == AUTH_GENERATION', source)
+        self.assertIn('saveIfCurrent', source)
+        self.assertIn('AUTH_GENERATION++', source)
+        self.assertIn('poll(context, dialog, deviceCode, intervalSeconds * 1000L, expiresAt, generation', source)
+
+    def test_401_refreshes_and_retries_once_without_treating_403_as_logout(self):
+        auth = AUTH.read_text()
+        sync = SYNC.read_text()
+        self.assertIn('forceRefresh(Context context)', auth)
+        self.assertIn('isAuthoritativeInvalidRefresh', auth)
+        self.assertNotIn('error.status == 400 || error.status == 401 || error.status == 403', auth)
+        self.assertIn('if (status == 401 && attempt == 0)', sync)
+        self.assertIn('accessToken = TraktDeviceAuth.forceRefresh(context)', sync)
+        self.assertIn('if (status == 403)', sync)
+        self.assertNotIn('status == 401 || status == 403', sync)
+        coordinator = COORDINATOR.read_text()
+        self.assertIn('status == 401 && !authRetried', coordinator)
+        self.assertIn('currentToken = TraktDeviceAuth.forceRefresh(context)', coordinator)
+        self.assertIn('if (status == 403)', coordinator)
+        self.assertNotIn('status == 401 || status == 403', coordinator)
+
+    def test_transient_device_poll_failures_retry_only_until_expiry(self):
+        source = AUTH.read_text()
+        retry = source[source.index('private static boolean isRetryableDeviceAuthorizationError'):
+                       source.index('private static JSONObject post')]
+        self.assertIn('error instanceof java.io.IOException', retry)
+        self.assertIn('isRetryableStatus', retry)
+        self.assertIn('System.currentTimeMillis() >= expiresAt', source)
+
+    def test_native_preference_state_updates_after_auth_changes(self):
+        source = PREFERENCE.read_text()
+        self.assertIn('refreshState()', source)
+        self.assertIn('setTitle(connected ? "Trakt (Connected)" : "Trakt")', source)
+        self.assertIn('setSummary(connected ?', source)
+        self.assertIn('TraktDeviceAuth.open(context, this::refreshState)', source)
 
     def test_android_json_reads_are_chunk_bounded_before_accumulation(self):
         for path in (AUTH, COORDINATOR):
@@ -331,7 +383,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
     def test_import_is_wired_at_connected_startup_and_authorization_success(self):
         self.assertIn("TraktImportCoordinator.initialize(application)", EXTENSION.read_text())
         source = AUTH.read_text()
-        save_index = source.index("new TokenStore(context).save(token);")
+        save_index = source.index("saveIfCurrent(new TokenStore(context), token, generation)")
         initialize_index = source.index("TraktImportCoordinator.initialize(context);", save_index)
         self.assertGreater(initialize_index, save_index)
 

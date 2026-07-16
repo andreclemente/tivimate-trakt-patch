@@ -126,10 +126,16 @@ public final class TraktSyncClient {
                             + " progress_bucket=" + ((int) payload.getDouble("progress") / 5) * 5);
                     return;
                 }
-                if (status == 401 || status == 403) {
+                if (status == 401 && attempt == 0) {
                     Context context = applicationContext;
-                    if (context != null) TraktDeviceAuth.invalidateAccessToken(context);
-                    Log.w(TAG, mediaType + " scrobble authorization rejected");
+                    if (context == null) return;
+                    accessToken = TraktDeviceAuth.forceRefresh(context);
+                    if (accessToken != null) continue;
+                    Log.w(TAG, mediaType + " scrobble refresh rejected");
+                    return;
+                }
+                if (status == 403) {
+                    Log.w(TAG, mediaType + " scrobble forbidden");
                     return;
                 }
                 if (attempt == 0 && (status == 429 || status >= 500)) {
