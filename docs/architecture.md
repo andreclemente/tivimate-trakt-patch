@@ -44,8 +44,10 @@ Playback position and duration are milliseconds. Progress is clamped to `0..100`
 ```text
 Trakt watched movies + watched shows + active playback
   -> Trakt API directly (Bearer token + public client ID)
+  -> lightweight bounded startup cache
+  -> native movie/show detail-open boundary
   -> stable TMDB/IMDb identity matching
-  -> bounded import plan
+  -> opened-title duplicate reconciliation plan
   -> parameterized writes to TvPlayer.db
   -> native TiviMate watched/resume state
 ```
@@ -60,6 +62,7 @@ Required behavior:
 - Final matches require TMDB/IMDb identity; title/year may shortlist candidates but never establish identity.
 - Unsupported or ambiguous provider items are skipped rather than guessed.
 - Network and provider metadata work never runs on TiviMate's transaction/UI thread.
+- Startup does not scan the provider catalog; detail-open sync is primary and a rate-limited full import remains the fallback checkpoint.
 
 Runtime acceptance requires visible native watched-state proof for one Trakt-only movie and one Trakt-only episode, persistence after restart, partial-resume proof, and proof that a later genuine local update still exports.
 

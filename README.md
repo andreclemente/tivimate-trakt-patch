@@ -4,7 +4,7 @@ Morphe patch bundle adding native Trakt Device Authorization and runtime movie/e
 
 ## Current release
 
-- Version: `0.1.60`
+- Version: `0.1.61`
 - Manager source: `https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/patches-bundle.json`
 - Target: TiviMate 5.1.6 (`versionCode 5161`)
 - Patches:
@@ -19,6 +19,8 @@ Morphe patch bundle adding native Trakt Device Authorization and runtime movie/e
 4. Resolves stable movie/show identity from Xtream metadata.
 5. Sends authenticated Trakt `pause` below 80% and `stop` at or above 80%.
 6. Honors separate movie and show sync settings.
+7. Caches watched/playback state at startup without scanning the provider catalog.
+8. Reconciles native watched state for every stable-ID-confirmed duplicate when movie or show details open.
 
 No title-only matching is used. Missing stable IDs are skipped.
 
@@ -50,7 +52,7 @@ Patch verification requires a legally obtained TiviMate 5.1.6 APK and Morphe CLI
 ```sh
 java -jar morphe-cli.jar patch \
   --exclusive \
-  -p=dist/patches-0.1.60.mpp \
+  -p=dist/patches-0.1.61.mpp \
   -e='TiviMate Trakt settings/login' \
   -e='TiviMate Trakt runtime progress sync' \
   -o=patched.apk \

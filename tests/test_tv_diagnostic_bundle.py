@@ -12,6 +12,7 @@ DEVICE_AUTH = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpa
 PROGRESS_BRIDGE = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktProgressBridge.java"
 METADATA_RESOLVER = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/XtreamMetadataResolver.java"
 SYNC_CLIENT = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktSyncClient.java"
+ON_DEMAND_BRIDGE = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktOnDemandBridge.java"
 PATCH_BUNDLE_DESCRIPTOR = ROOT / "patches-bundle.json"
 
 
@@ -131,6 +132,32 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertNotIn('logChanges(', bridge)
         self.assertIn('default = true', source)
         self.assertNotIn('HttpURLConnection', bridge)
+
+    def test_on_demand_sync_hooks_exact_native_vod_and_series_metadata_returns(self):
+        patch = RUNTIME_PATCH.read_text()
+        self.assertIn('XtreamVodInfoFingerprint', patch)
+        self.assertIn('name = "ˈٴ"', patch)
+        self.assertIn('XtreamSeriesInfoFingerprint', patch)
+        self.assertIn('name = "ﾞˊ"', patch)
+        self.assertIn('TraktOnDemandBridge', patch)
+        self.assertIn('onVodInfoRequested', patch)
+        self.assertIn('onSeriesInfoRequested', patch)
+        self.assertTrue(ON_DEMAND_BRIDGE.exists(), "On-demand bridge is missing")
+        bridge = ON_DEMAND_BRIDGE.read_text()
+        self.assertIn('TraktImportCoordinator.requestOpenedMovie(xcId);', bridge)
+        self.assertIn('TraktImportCoordinator.requestOpenedSeries(xcId);', bridge)
+        coordinator = (ROOT / 'morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktImportCoordinator.java').read_text()
+        self.assertIn('if (TraktDeviceAuth.isConnected(applicationContext)) requestCacheRefresh();', coordinator)
+        self.assertIn('public static void requestOpenedMovie(int xcId)', coordinator)
+        self.assertIn('public static void requestOpenedSeries(int xcId)', coordinator)
+        self.assertIn('CACHE_MAX_AGE_MS', coordinator)
+        self.assertIn('syncOpened(context, "movie", openedId)', coordinator)
+        self.assertIn('syncOpened(context, "episode", openedId)', coordinator)
+        self.assertIn('WHERE c.xc_id=?', coordinator)
+        self.assertIn('OPEN_FALLBACK_CHECKPOINT_KEY', coordinator)
+        self.assertIn('requestFallbackImport', coordinator)
+        self.assertNotIn('params.toString()', bridge)
+        self.assertNotIn('info.toString()', bridge)
 
     def test_xtream_identity_resolution_runs_off_the_database_hook_and_redacts_credentials(self):
         bridge = PROGRESS_BRIDGE.read_text()

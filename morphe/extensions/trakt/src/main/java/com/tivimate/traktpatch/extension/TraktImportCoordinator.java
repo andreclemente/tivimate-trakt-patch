@@ -46,18 +46,65 @@ public final class TraktImportCoordinator {
     private static final int RECENT_WATCHED_SHOW_DETAILS_PER_IMPORT = 4;
     private static final String DETAIL_CHECKPOINT_PREFS = "trakt_import_checkpoint";
     private static final String DETAIL_CHECKPOINT_KEY = "watched_show_cursor";
+    private static final String OPEN_FALLBACK_CHECKPOINT_KEY = "on_demand_fallback_at";
+    private static final long OPEN_FALLBACK_INTERVAL_MS = 24L * 60L * 60L * 1000L;
+    private static final long CACHE_MAX_AGE_MS = 5L * 60L * 1000L;
     private static final int TRAKT_DETAIL_THREADS = 2;
     private static final ExecutorService IMPORTS = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
     private static final AtomicBoolean PENDING = new AtomicBoolean();
     private static volatile Context applicationContext;
+    private static volatile CacheSnapshot cacheSnapshot;
 
     private TraktImportCoordinator() { }
 
     public static void initialize(Context context) {
         if (context == null) return;
         applicationContext = context.getApplicationContext();
-        if (TraktDeviceAuth.isConnected(applicationContext)) requestImport();
+        if (TraktDeviceAuth.isConnected(applicationContext)) requestCacheRefresh();
+    }
+
+    public static void requestCacheRefresh() {
+        final Context context = applicationContext;
+        if (context == null) return;
+        IMPORTS.execute(new Runnable() {
+            @Override public void run() {
+                try {
+                    refreshCache(context);
+                    Log.i(TAG, "startup cache ready");
+                } catch (Exception error) {
+                    Log.w(TAG, "startup cache failed type=" + error.getClass().getSimpleName());
+                }
+            }
+        });
+    }
+
+    public static void requestOpenedMovie(int xcId) {
+        final Context context = applicationContext;
+        if (context == null || xcId <= 0 || !TraktDeviceAuth.moviesEnabled(context)) return;
+        final int openedId = xcId;
+        IMPORTS.execute(new Runnable() {
+            @Override public void run() {
+                try { syncOpened(context, "movie", openedId); }
+                catch (Exception error) {
+                    Log.w(TAG, "on-demand movie failed type=" + error.getClass().getSimpleName());
+                }
+            }
+        });
+    }
+
+    public static void requestOpenedSeries(int xcId) {
+        final Context context = applicationContext;
+        if (context == null || xcId <= 0 || !TraktDeviceAuth.showsEnabled(context)) return;
+        final int openedId = xcId;
+        IMPORTS.execute(new Runnable() {
+            @Override public void run() {
+                try { syncOpened(context, "episode", openedId); }
+                catch (Exception error) {
+                    Log.w(TAG, "on-demand series failed type=" + error.getClass().getSimpleName());
+                }
+            }
+        });
     }
 
     /** Safe to call from startup or authorization UI; this method only enqueues. */
@@ -85,6 +132,150 @@ public final class TraktImportCoordinator {
                 }
             }
         });
+    }
+
+    private static CacheSnapshot refreshCache(Context context) throws Exception {
+        String token = TraktDeviceAuth.accessToken(context);
+        String clientId = TraktDeviceAuth.clientId(context);
+        if (token == null || clientId == null) throw new IOException("Trakt authorization unavailable");
+        JSONArray movies = fetch(ROUTES[0], token, clientId, context);
+        JSONArray shows = fetch(ROUTES[1], token, clientId, context);
+        JSONArray playback = fetch(ROUTES[2], token, clientId, context);
+        if (movies == null || shows == null || playback == null) {
+            throw new IOException("Trakt cache unavailable");
+        }
+        CacheSnapshot value = new CacheSnapshot(movies, shows, playback,
+                System.currentTimeMillis());
+        cacheSnapshot = value;
+        Log.i(TAG, "cache fetched movies=" + movies.length() + " shows=" + shows.length()
+                + " playback=" + playback.length());
+        return value;
+    }
+
+    private static CacheSnapshot freshCache(Context context) throws Exception {
+        CacheSnapshot value = cacheSnapshot;
+        long now = System.currentTimeMillis();
+        if (value == null || now - value.loadedAt > CACHE_MAX_AGE_MS) {
+            value = refreshCache(context);
+        }
+        return value;
+    }
+
+    private static void syncOpened(Context context, String type, int xcId) throws Exception {
+        CacheSnapshot snapshot = freshCache(context);
+        java.io.File file = context.getDatabasePath(DATABASE_NAME);
+        if (!file.isFile()) return;
+        SQLiteDatabase database = SQLiteDatabase.openDatabase(file.getAbsolutePath(), null,
+                SQLiteDatabase.OPEN_READWRITE);
+        boolean matched = false;
+        try {
+            boolean movie = "movie".equals(type);
+            Candidate opened = openedCandidate(database, movie ? "movies" : "series", xcId);
+            if (opened == null) return;
+            JSONObject provider = providerInfo(opened, movie);
+            ProviderIdentity identity = providerIdentity(provider.optJSONObject("info"),
+                    provider.optJSONObject("movie_data"));
+            if (identity.conflict || (identity.tmdb.isEmpty() && identity.imdb.isEmpty())) return;
+
+            LinkedHashMap<String, Target> active = new LinkedHashMap<>();
+            LinkedHashMap<String, Target> watchedMovies = new LinkedHashMap<>();
+            LinkedHashMap<String, Target> watchedShows = new LinkedHashMap<>();
+            addPlayback(snapshot.playback, active, context);
+            if (movie) {
+                addWatchedMovies(snapshot.movies, watchedMovies);
+            } else {
+                addWatchedShows(openedWatchedShows(snapshot.shows, identity, context), watchedShows);
+            }
+            retainIdentity(active, identity, type);
+            retainIdentity(watchedMovies, identity, type);
+            retainIdentity(watchedShows, identity, type);
+            mergeOverlaps(active, watchedMovies);
+            mergeOverlaps(active, watchedShows);
+            List<List<Target>> categories = new ArrayList<>();
+            categories.add(new ArrayList<>(active.values()));
+            categories.add(new ArrayList<>(watchedMovies.values()));
+            categories.add(new ArrayList<>(watchedShows.values()));
+            int targetCount = active.size() + watchedMovies.size() + watchedShows.size();
+            if (targetCount == 0) return;
+            apply(database, categories, targetCount);
+            matched = true;
+            Log.i(TAG, "on-demand complete media=" + (movie ? "movie" : "series")
+                    + " targets=" + targetCount);
+        } finally {
+            database.close();
+            if (!matched) requestFallbackImport(context);
+        }
+    }
+
+    private static Candidate openedCandidate(SQLiteDatabase database, String table, int xcId) {
+        Set<String> names = columns(database, table);
+        String titleColumn = names.contains("name") ? "name" :
+                (names.contains("title") ? "title" : null);
+        if (titleColumn == null) return null;
+        Cursor cursor = database.rawQuery("SELECT c.id,c.xc_id,c." + titleColumn
+                        + ",p.url FROM " + table
+                        + " c JOIN playlists p ON p.id=c.playlist_id WHERE c.xc_id=? "
+                        + "ORDER BY c.id LIMIT 1", new String[]{String.valueOf(xcId)});
+        try {
+            if (!cursor.moveToFirst()) return null;
+            Candidate result = new Candidate();
+            result.id = cursor.getLong(0);
+            result.xcId = cursor.getString(1);
+            result.title = cursor.isNull(2) ? "" : cursor.getString(2);
+            result.year = yearFromTitle(result.title);
+            result.playlistUrl = cursor.isNull(3) ? "" : cursor.getString(3);
+            return result;
+        } finally { cursor.close(); }
+    }
+
+    private static JSONArray openedWatchedShows(JSONArray values, ProviderIdentity wanted,
+                                                 Context context) throws Exception {
+        JSONArray result = new JSONArray();
+        for (int i = 0; i < values.length(); i++) {
+            JSONObject wrapper = values.optJSONObject(i);
+            JSONObject show = wrapper == null ? null : wrapper.optJSONObject("show");
+            Target identity = mediaTarget("episode", show, true, 100.0d);
+            if (!targetMatches(identity, wanted, "episode")) continue;
+            JSONObject copy = new JSONObject(wrapper.toString());
+            if (copy.optJSONArray("seasons") == null) {
+                JSONObject ids = show.optJSONObject("ids");
+                long traktId = ids == null ? 0L : ids.optLong("trakt", 0L);
+                String token = TraktDeviceAuth.accessToken(context);
+                String clientId = TraktDeviceAuth.clientId(context);
+                if (traktId <= 0L || token == null || clientId == null) continue;
+                JSONObject progress = fetchObject("/shows/" + traktId
+                                + "/progress/watched?hidden=false&specials=false&count_specials=false",
+                        token, clientId, context);
+                if (progress == null) continue;
+                copy.put("seasons", completedSeasons(progress));
+            }
+            result.put(copy);
+        }
+        return result;
+    }
+
+    private static void retainIdentity(Map<String, Target> targets, ProviderIdentity wanted,
+                                       String type) {
+        for (Map.Entry<String, Target> entry : new ArrayList<>(targets.entrySet())) {
+            if (!targetMatches(entry.getValue(), wanted, type)) targets.remove(entry.getKey());
+        }
+    }
+
+    private static boolean targetMatches(Target target, ProviderIdentity wanted, String type) {
+        return target != null && type.equals(target.type)
+                && TraktImportPolicy.sameStableId(target.tmdb, target.imdb,
+                wanted.tmdb, wanted.imdb);
+    }
+
+    private static void requestFallbackImport(Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences(
+                DETAIL_CHECKPOINT_PREFS, Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        long previous = prefs.getLong(OPEN_FALLBACK_CHECKPOINT_KEY, 0L);
+        if (now - previous < OPEN_FALLBACK_INTERVAL_MS) return;
+        prefs.edit().putLong(OPEN_FALLBACK_CHECKPOINT_KEY, now).apply();
+        Log.i(TAG, "on-demand fallback checkpoint");
+        requestImport();
     }
 
     private static void importNow(Context context) throws Exception {
@@ -997,6 +1188,18 @@ public final class TraktImportCoordinator {
             }
         }
         return result.toString();
+    }
+
+    private static final class CacheSnapshot {
+        final JSONArray movies, shows, playback;
+        final long loadedAt;
+
+        CacheSnapshot(JSONArray movies, JSONArray shows, JSONArray playback, long loadedAt) {
+            this.movies = movies;
+            this.shows = shows;
+            this.playback = playback;
+            this.loadedAt = loadedAt;
+        }
     }
 
     private static final class Target {

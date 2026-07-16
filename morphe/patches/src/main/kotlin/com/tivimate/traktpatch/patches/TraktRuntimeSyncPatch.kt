@@ -7,6 +7,11 @@ import com.tivimate.traktpatch.patches.Constants.COMPATIBILITY_TIVIMATE
 
 private const val PROGRESS_BRIDGE =
     "Lcom/tivimate/traktpatch/extension/TraktProgressBridge;"
+private const val ON_DEMAND_BRIDGE =
+    "Lcom/tivimate/traktpatch/extension/TraktOnDemandBridge;"
+private const val XTREAM_CODES = "Lـﹶ/ـﹶ;"
+private const val XTREAM_PARAMS =
+    "Lar/tvplayer/core/data/api/xtreamcodes/XtreamCodes\u0024Params;"
 
 /**
  * TiviMate 5.1.6's SupportSQLite wrapper method that delegates to
@@ -17,6 +22,20 @@ private object EndTransactionFingerprint : Fingerprint(
     definingClass = "Lʿﹶ/ﹳﹳ;",
     name = "ˏᴵ",
     returnType = "V"
+)
+
+private object XtreamVodInfoFingerprint : Fingerprint(
+    definingClass = XTREAM_CODES,
+    name = "ˈٴ",
+    returnType = "Lar/tvplayer/core/data/api/xtreamcodes/VodInfo;",
+    parameters = listOf(XTREAM_PARAMS, "I")
+)
+
+private object XtreamSeriesInfoFingerprint : Fingerprint(
+    definingClass = XTREAM_CODES,
+    name = "ﾞˊ",
+    returnType = "Lar/tvplayer/core/data/api/xtreamcodes/SeriesInfo;",
+    parameters = listOf(XTREAM_PARAMS, "I")
 )
 
 /**
@@ -35,10 +54,19 @@ val traktRuntimeSyncPatch = bytecodePatch(
 
     execute {
         classDefBy(PROGRESS_BRIDGE)
+        classDefBy(ON_DEMAND_BRIDGE)
         // Existing instructions: iget-object v0, invoke endTransaction, return.
         EndTransactionFingerprint.method.addInstruction(
             2,
             "invoke-static { v0 }, $PROGRESS_BRIDGE->onTransactionEnded(Landroid/database/sqlite/SQLiteDatabase;)V"
+        )
+        XtreamVodInfoFingerprint.method.addInstruction(
+            0,
+            "invoke-static { p0, p1 }, $ON_DEMAND_BRIDGE->onVodInfoRequested(Ljava/lang/Object;I)V"
+        )
+        XtreamSeriesInfoFingerprint.method.addInstruction(
+            0,
+            "invoke-static { p0, p1 }, $ON_DEMAND_BRIDGE->onSeriesInfoRequested(Ljava/lang/Object;I)V"
         )
     }
 }
