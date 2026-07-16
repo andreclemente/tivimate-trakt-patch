@@ -22,11 +22,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Bounded, fail-closed Trakt -> TiviMate importer. Import orchestration and DB writes are serialized; provider metadata requests use a bounded pool. */
 public final class TraktImportCoordinator {
@@ -45,13 +50,26 @@ public final class TraktImportCoordinator {
     private static final int RECENT_WATCHED_SHOW_DETAILS_PER_IMPORT = 4;
     private static final String DETAIL_CHECKPOINT_PREFS = "trakt_import_checkpoint";
     private static final String DETAIL_CHECKPOINT_KEY = "watched_show_cursor";
-    private static final String OPEN_FALLBACK_CHECKPOINT_KEY = "on_demand_fallback_at";
-    private static final long OPEN_FALLBACK_INTERVAL_MS = 24L * 60L * 60L * 1000L;
     private static final long CACHE_MAX_AGE_MS = 5L * 60L * 1000L;
+    private static final long CACHE_REFRESH_RETRY_MS = 60_000L;
     private static final int TRAKT_DETAIL_THREADS = 2;
-    private static final ExecutorService IMPORTS = Executors.newSingleThreadExecutor();
+    private static final int MAX_ON_DEMAND_KEYS = 32;
+    private static final ExecutorService MAINTENANCE = new ThreadPoolExecutor(1, 1, 0L,
+            TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(2),
+            new ThreadPoolExecutor.AbortPolicy());
+    private static final ExecutorService ON_DEMAND = new ThreadPoolExecutor(1, 1, 0L,
+            TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(1),
+            new ThreadPoolExecutor.AbortPolicy());
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
     private static final AtomicBoolean PENDING = new AtomicBoolean();
+    private static final AtomicReference<CacheSnapshot> PENDING_SNAPSHOT = new AtomicReference<>();
+    private static final AtomicBoolean CACHE_REFRESH_RUNNING = new AtomicBoolean();
+    private static final Object ON_DEMAND_LOCK = new Object();
+    private static final Object DATABASE_WRITE_LOCK = new Object();
+    private static final LinkedHashMap<String, OnDemandRequest> ON_DEMAND_REQUESTS =
+            new LinkedHashMap<>();
+    private static boolean onDemandWorkerScheduled;
+    private static volatile long cacheRefreshRetryAt;
     private static volatile Context applicationContext;
     private static volatile CacheSnapshot cacheSnapshot;
 
@@ -65,72 +83,138 @@ public final class TraktImportCoordinator {
 
     public static void requestCacheRefresh() {
         final Context context = applicationContext;
-        if (context == null) return;
-        IMPORTS.execute(new Runnable() {
-            @Override public void run() {
-                try {
-                    refreshCache(context);
-                    Log.i(TAG, "startup cache ready");
-                } catch (Exception error) {
-                    Log.w(TAG, "startup cache failed type=" + error.getClass().getSimpleName());
+        long now = System.currentTimeMillis();
+        if (context == null || now < cacheRefreshRetryAt
+                || !CACHE_REFRESH_RUNNING.compareAndSet(false, true)) return;
+        try {
+            MAINTENANCE.execute(new Runnable() {
+                @Override public void run() {
+                    try {
+                        refreshCacheHeld(context);
+                        Log.i(TAG, "startup cache ready");
+                    } catch (Exception error) {
+                        Log.w(TAG, "startup cache failed type=" + error.getClass().getSimpleName());
+                    }
                 }
-            }
-        });
+            });
+        } catch (RejectedExecutionException rejected) {
+            CACHE_REFRESH_RUNNING.set(false);
+            Log.w(TAG, "startup cache queue full");
+        }
     }
 
     public static void requestOpenedMovie(int xcId) {
         final Context context = applicationContext;
         if (context == null || xcId <= 0 || !TraktDeviceAuth.moviesEnabled(context)) return;
-        final int openedId = xcId;
-        IMPORTS.execute(new Runnable() {
-            @Override public void run() {
-                try { syncOpened(context, "movie", openedId); }
-                catch (Exception error) {
-                    Log.w(TAG, "on-demand movie failed type=" + error.getClass().getSimpleName());
-                }
-            }
-        });
+        requestOpened(context, "movie", xcId);
     }
 
     public static void requestOpenedSeries(int xcId) {
         final Context context = applicationContext;
         if (context == null || xcId <= 0 || !TraktDeviceAuth.showsEnabled(context)) return;
-        final int openedId = xcId;
-        IMPORTS.execute(new Runnable() {
-            @Override public void run() {
-                try { syncOpened(context, "episode", openedId); }
-                catch (Exception error) {
-                    Log.w(TAG, "on-demand series failed type=" + error.getClass().getSimpleName());
+        requestOpened(context, "episode", xcId);
+    }
+
+    private static void requestOpened(Context context, String media, int xcId) {
+        String key = media + ":" + xcId;
+        synchronized (ON_DEMAND_LOCK) {
+            OnDemandRequest existing = ON_DEMAND_REQUESTS.get(key);
+            if (existing != null) {
+                if (existing.running) existing.rerun = true;
+                return;
+            }
+            if (ON_DEMAND_REQUESTS.size() >= MAX_ON_DEMAND_KEYS) {
+                Log.w(TAG, "on-demand queue full");
+                return;
+            }
+            ON_DEMAND_REQUESTS.put(key, new OnDemandRequest(key, context, media, xcId));
+            if (onDemandWorkerScheduled) return;
+            onDemandWorkerScheduled = true;
+            try {
+                ON_DEMAND.execute(new Runnable() {
+                    @Override public void run() { drainOnDemand(); }
+                });
+            } catch (RejectedExecutionException rejected) {
+                onDemandWorkerScheduled = false;
+                ON_DEMAND_REQUESTS.remove(key);
+                Log.w(TAG, "on-demand worker unavailable");
+            }
+        }
+    }
+
+    private static void drainOnDemand() {
+        while (true) {
+            OnDemandRequest request = null;
+            synchronized (ON_DEMAND_LOCK) {
+                for (OnDemandRequest candidate : ON_DEMAND_REQUESTS.values()) {
+                    if (!candidate.running) {
+                        request = candidate;
+                        request.running = true;
+                        break;
+                    }
+                }
+                if (request == null) {
+                    onDemandWorkerScheduled = false;
+                    return;
                 }
             }
-        });
+            try {
+                syncOpened(request.context, request.media, request.xcId);
+            } catch (Exception error) {
+                Log.w(TAG, "on-demand failed media="
+                        + ("movie".equals(request.media) ? "movie" : "series")
+                        + " type=" + error.getClass().getSimpleName());
+            } finally {
+                synchronized (ON_DEMAND_LOCK) {
+                    if (request.rerun) {
+                        request.rerun = false;
+                        request.running = false;
+                    } else {
+                        ON_DEMAND_REQUESTS.remove(request.key);
+                    }
+                }
+            }
+        }
     }
 
     /** Safe to call from startup or authorization UI; this method only enqueues. */
     public static void requestImport() {
+        requestImport(null);
+    }
+
+    private static void requestImport(CacheSnapshot preferredSnapshot) {
         final Context context = applicationContext;
         if (context == null) return;
+        if (isFresh(preferredSnapshot, System.currentTimeMillis())) {
+            PENDING_SNAPSHOT.set(preferredSnapshot);
+        }
         PENDING.set(true);
         if (!RUNNING.compareAndSet(false, true)) return;
-        IMPORTS.execute(new Runnable() {
-            @Override public void run() {
-                try {
-                    while (PENDING.getAndSet(false)) {
-                        try { importNow(context); }
-                        catch (Exception error) {
-                            Throwable root = error;
-                            while (root.getCause() != null) root = root.getCause();
-                            Log.w(TAG, "import failed type=" + error.getClass().getSimpleName()
-                                    + " root=" + root.getClass().getSimpleName());
+        try {
+            MAINTENANCE.execute(new Runnable() {
+                @Override public void run() {
+                    try {
+                        while (PENDING.getAndSet(false)) {
+                            CacheSnapshot snapshot = PENDING_SNAPSHOT.getAndSet(null);
+                            try { importNow(context, snapshot); }
+                            catch (Exception error) {
+                                Throwable root = error;
+                                while (root.getCause() != null) root = root.getCause();
+                                Log.w(TAG, "import failed type=" + error.getClass().getSimpleName()
+                                        + " root=" + root.getClass().getSimpleName());
+                            }
                         }
+                    } finally {
+                        RUNNING.set(false);
+                        // Close the request-vs-finally race without queuing more than one rerun.
+                        if (PENDING.get()) requestImport();
                     }
-                } finally {
-                    RUNNING.set(false);
-                    // Close the request-vs-finally race without queuing more than one rerun.
-                    if (PENDING.get()) requestImport();
                 }
-            }
-        });
+            });
+        } catch (RejectedExecutionException rejected) {
+            RUNNING.set(false);
+            Log.w(TAG, "import queue full");
+        }
     }
 
     private static CacheSnapshot refreshCache(Context context) throws Exception {
@@ -151,23 +235,51 @@ public final class TraktImportCoordinator {
         return value;
     }
 
+    private static boolean isFresh(CacheSnapshot value, long now) {
+        return value != null && now >= value.loadedAt && now - value.loadedAt <= CACHE_MAX_AGE_MS;
+    }
+
     private static CacheSnapshot freshCache(Context context) throws Exception {
         CacheSnapshot value = cacheSnapshot;
         long now = System.currentTimeMillis();
-        if (value == null || now - value.loadedAt > CACHE_MAX_AGE_MS) {
-            value = refreshCache(context);
+        if (isFresh(value, now)) return value;
+        return refreshCacheSingleFlight(context);
+    }
+
+    private static CacheSnapshot refreshCacheSingleFlight(Context context) throws Exception {
+        long now = System.currentTimeMillis();
+        CacheSnapshot value = cacheSnapshot;
+        if (isFresh(value, now)) return value;
+        if (now < cacheRefreshRetryAt) throw new IOException("Trakt cache refresh backed off");
+        if (!CACHE_REFRESH_RUNNING.compareAndSet(false, true)) {
+            throw new IOException("Trakt cache refresh already running");
         }
-        return value;
+        return refreshCacheHeld(context);
+    }
+
+    private static CacheSnapshot refreshCacheHeld(Context context) throws Exception {
+        try {
+            CacheSnapshot value = refreshCache(context);
+            cacheRefreshRetryAt = 0L;
+            return value;
+        } catch (Exception error) {
+            cacheRefreshRetryAt = System.currentTimeMillis() + CACHE_REFRESH_RETRY_MS;
+            throw error;
+        } finally {
+            CACHE_REFRESH_RUNNING.set(false);
+        }
     }
 
     private static void syncOpened(Context context, String type, int xcId) throws Exception {
-        CacheSnapshot snapshot = freshCache(context);
-        java.io.File file = context.getDatabasePath(DATABASE_NAME);
-        if (!file.isFile()) return;
-        SQLiteDatabase database = SQLiteDatabase.openDatabase(file.getAbsolutePath(), null,
-                SQLiteDatabase.OPEN_READWRITE);
-        boolean matched = false;
+        CacheSnapshot snapshot = null;
+        SQLiteDatabase database = null;
+        boolean providerReconciled = false;
         try {
+            snapshot = freshCache(context);
+            java.io.File file = context.getDatabasePath(DATABASE_NAME);
+            if (!file.isFile()) return;
+            database = SQLiteDatabase.openDatabase(file.getAbsolutePath(), null,
+                    SQLiteDatabase.OPEN_READWRITE);
             boolean movie = "movie".equals(type);
             Candidate opened = openedCandidate(database, movie ? "movies" : "series", xcId);
             if (opened == null) return;
@@ -196,13 +308,14 @@ public final class TraktImportCoordinator {
             categories.add(new ArrayList<>(watchedShows.values()));
             int targetCount = active.size() + watchedMovies.size() + watchedShows.size();
             if (targetCount == 0) return;
-            apply(database, categories, targetCount);
-            matched = true;
-            Log.i(TAG, "on-demand complete media=" + (movie ? "movie" : "series")
-                    + " targets=" + targetCount);
+            providerReconciled = apply(database, categories, targetCount) > 0;
+            if (providerReconciled) {
+                Log.i(TAG, "on-demand complete media=" + (movie ? "movie" : "series")
+                        + " targets=" + targetCount);
+            }
         } finally {
-            database.close();
-            if (!matched) requestFallbackImport(context);
+            if (database != null) database.close();
+            if (!providerReconciled) requestFallbackImport(context, snapshot);
         }
     }
 
@@ -266,27 +379,22 @@ public final class TraktImportCoordinator {
                 wanted.tmdb, wanted.imdb);
     }
 
-    private static void requestFallbackImport(Context context) {
-        android.content.SharedPreferences prefs = context.getSharedPreferences(
-                DETAIL_CHECKPOINT_PREFS, Context.MODE_PRIVATE);
-        long now = System.currentTimeMillis();
-        long previous = prefs.getLong(OPEN_FALLBACK_CHECKPOINT_KEY, 0L);
-        if (now - previous < OPEN_FALLBACK_INTERVAL_MS) return;
-        prefs.edit().putLong(OPEN_FALLBACK_CHECKPOINT_KEY, now).apply();
-        Log.i(TAG, "on-demand fallback checkpoint");
-        requestImport();
+    private static void requestFallbackImport(Context context, CacheSnapshot snapshot) {
+        Log.i(TAG, "on-demand fallback queued");
+        requestImport(snapshot);
     }
 
-    private static void importNow(Context context) throws Exception {
+    private static void importNow(Context context, CacheSnapshot preferredSnapshot) throws Exception {
         Log.i(TAG, "import start");
         String token = TraktDeviceAuth.accessToken(context);
         if (token == null) { Log.i(TAG, "import skipped token"); return; }
         String clientId = TraktDeviceAuth.clientId(context);
         if (clientId == null) { Log.i(TAG, "import skipped client"); return; }
-        JSONArray movies = fetch(ROUTES[0], token, clientId, context);
-        JSONArray shows = fetch(ROUTES[1], token, clientId, context);
-        JSONArray playback = fetch(ROUTES[2], token, clientId, context);
-        if (movies == null || shows == null || playback == null) return;
+        CacheSnapshot snapshot = isFresh(preferredSnapshot, System.currentTimeMillis())
+                ? preferredSnapshot : freshCache(context);
+        JSONArray movies = snapshot.movies;
+        JSONArray shows = snapshot.shows;
+        JSONArray playback = snapshot.playback;
         if (TraktDeviceAuth.showsEnabled(context)) {
             shows = enrichWatchedShows(shows, token, clientId, context,
                     localSeriesTitles(context));
@@ -650,8 +758,8 @@ public final class TraktImportCoordinator {
         }
     }
 
-    private static void apply(SQLiteDatabase database, List<List<Target>> categories,
-                              int targetCount) throws Exception {
+    private static int apply(SQLiteDatabase database, List<List<Target>> categories,
+                             int targetCount) throws Exception {
         List<Target> movieTargets = new ArrayList<>();
         List<Target> showTargets = new ArrayList<>();
         for (List<Target> category : categories) for (Target target : category) {
@@ -667,55 +775,58 @@ public final class TraktImportCoordinator {
         states.add(new CategoryState(categories.get(2), movies, series));
         int requests = resolveProviderCandidates(states, matches);
 
-        int changed = 0;
-        if (matches.isEmpty()) {
-            Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests + " matches=0 changed=0");
-            return;
-        }
-        Set<String> expectedMovies = new HashSet<>();
-        Set<String> expectedEpisodes = new HashSet<>();
-        Set<String> removedEpisodes = new HashSet<>();
-        boolean transactionStarted = false;
-        boolean commitRequested = false;
-        TraktProgressBridge.beginImportWrite();
-        try {
-            database.beginTransaction();
-            transactionStarted = true;
-            for (Match match : matches) {
-                if ("movie".equals(match.target.type)) {
-                    String expected = updateMovie(database, match.candidate, match.target,
-                            match.providerDurationMs);
-                    if (expected != null) {
-                        changed++;
-                        expectedMovies.add(expected);
-                    }
-                } else {
-                    String expected = updateEpisode(database, match.candidate, match.target,
-                            match.episodeXcId, match.providerDurationMs);
-                    if (expected != null) {
-                        changed++;
-                        expectedEpisodes.add(expected);
-                    }
-                }
+        synchronized (DATABASE_WRITE_LOCK) {
+            int changed = 0;
+            if (matches.isEmpty()) {
+                Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests + " matches=0 changed=0");
+                return 0;
             }
-            changed += reconcileEpisodes(database, matches, removedEpisodes);
-            database.setTransactionSuccessful();
-            commitRequested = true;
-        } finally {
+            Set<String> expectedMovies = new HashSet<>();
+            Set<String> expectedEpisodes = new HashSet<>();
+            Set<String> removedEpisodes = new HashSet<>();
+            boolean transactionStarted = false;
+            boolean commitRequested = false;
+            TraktProgressBridge.beginImportWrite();
             try {
-                if (transactionStarted) {
-                    database.endTransaction();
-                    if (commitRequested) {
-                        TraktProgressBridge.mergeExpectedRowsAfterImport(
-                                expectedMovies, expectedEpisodes, removedEpisodes);
+                database.beginTransaction();
+                transactionStarted = true;
+                for (Match match : matches) {
+                    if ("movie".equals(match.target.type)) {
+                        String expected = updateMovie(database, match.candidate, match.target,
+                                match.providerDurationMs);
+                        if (expected != null) {
+                            changed++;
+                            expectedMovies.add(expected);
+                        }
+                    } else {
+                        String expected = updateEpisode(database, match.candidate, match.target,
+                                match.episodeXcId, match.providerDurationMs);
+                        if (expected != null) {
+                            changed++;
+                            expectedEpisodes.add(expected);
+                        }
                     }
                 }
+                changed += reconcileEpisodes(database, matches, removedEpisodes);
+                database.setTransactionSuccessful();
+                commitRequested = true;
             } finally {
-                TraktProgressBridge.endImportWrite();
+                try {
+                    if (transactionStarted) {
+                        database.endTransaction();
+                        if (commitRequested) {
+                            TraktProgressBridge.mergeExpectedRowsAfterImport(
+                                    expectedMovies, expectedEpisodes, removedEpisodes);
+                        }
+                    }
+                } finally {
+                    TraktProgressBridge.endImportWrite();
+                }
             }
+            Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests
+                    + " matches=" + matches.size() + " changed=" + changed);
+            return matches.size();
         }
-        Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests
-                + " matches=" + matches.size() + " changed=" + changed);
     }
 
     private static int resolveProviderCandidates(List<CategoryState> states,
@@ -1171,6 +1282,22 @@ public final class TraktImportCoordinator {
             }
         }
         return result.toString();
+    }
+
+    private static final class OnDemandRequest {
+        final String key;
+        final Context context;
+        final String media;
+        final int xcId;
+        boolean running;
+        boolean rerun;
+
+        OnDemandRequest(String key, Context context, String media, int xcId) {
+            this.key = key;
+            this.context = context;
+            this.media = media;
+            this.xcId = xcId;
+        }
     }
 
     private static final class CacheSnapshot {

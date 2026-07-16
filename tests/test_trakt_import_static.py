@@ -23,7 +23,7 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("TraktDeviceAuth.clientId(context)", source)
         self.assertIn("MAX_PROVIDER_TASKS = 4096", source)
         self.assertIn("MAX_RESPONSE_CHARS = 2_000_000", source)
-        self.assertIn("Executors.newSingleThreadExecutor()", source)
+        self.assertIn("new ArrayBlockingQueue<Runnable>(2)", source)
 
     def test_refresh_route_matches_worker_contract_exactly(self):
         source = AUTH.read_text()
@@ -178,6 +178,50 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("PENDING.set(true)", source)
         self.assertIn("while (PENDING.getAndSet(false))", source)
         self.assertIn("if (PENDING.get()) requestImport()", source)
+
+    def test_on_demand_requests_use_a_bounded_keyed_coalescing_scheduler(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("MAX_ON_DEMAND_KEYS = 32", source)
+        self.assertIn("new ArrayBlockingQueue<Runnable>(1)", source)
+        self.assertIn('String key = media + ":" + xcId;', source)
+        self.assertIn("ON_DEMAND_REQUESTS.get(key)", source)
+        self.assertIn("existing.rerun = true", source)
+        self.assertIn("ON_DEMAND_REQUESTS.size() >= MAX_ON_DEMAND_KEYS", source)
+        self.assertIn("drainOnDemand()", source)
+        movie = source[source.index("public static void requestOpenedMovie"):source.index("public static void requestOpenedSeries")]
+        series = source[source.index("public static void requestOpenedSeries"):source.index("public static void requestImport")]
+        self.assertIn('requestOpened(context, "movie", xcId)', movie)
+        self.assertIn('requestOpened(context, "episode", xcId)', series)
+        self.assertNotIn("IMPORTS.execute", movie + series)
+
+    def test_cache_refresh_is_single_flight_and_failure_backed_off(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("CACHE_REFRESH_RUNNING.compareAndSet(false, true)", source)
+        self.assertIn("CACHE_REFRESH_RETRY_MS", source)
+        self.assertIn("cacheRefreshRetryAt", source)
+        self.assertIn("now < cacheRefreshRetryAt", source)
+        self.assertIn("CACHE_REFRESH_RUNNING.set(false)", source)
+        self.assertIn("refreshCacheSingleFlight(context)", source)
+
+    def test_open_fallback_covers_early_failures_and_reuses_fresh_cache(self):
+        source = COORDINATOR.read_text()
+        opened = source[source.index("private static void syncOpened("):source.index("private static Candidate openedCandidate(")]
+        self.assertLess(opened.index("try {"), opened.index("freshCache(context)"))
+        self.assertIn("finally", opened)
+        self.assertIn("if (!providerReconciled) requestFallbackImport(context, snapshot)", opened)
+        self.assertIn("providerReconciled = apply(database, categories, targetCount) > 0", opened)
+        self.assertIn("requestImport(snapshot)", source)
+        self.assertIn("CacheSnapshot preferredSnapshot", source)
+        self.assertIn("isFresh(preferredSnapshot, System.currentTimeMillis())", source)
+        self.assertNotIn("OPEN_FALLBACK_INTERVAL_MS", source)
+
+    def test_on_demand_and_long_running_maintenance_have_separate_bounded_paths(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("private static final ExecutorService ON_DEMAND", source)
+        self.assertIn("private static final ExecutorService MAINTENANCE", source)
+        self.assertIn("new ArrayBlockingQueue<Runnable>(2)", source)
+        self.assertIn("synchronized (DATABASE_WRITE_LOCK)", source)
+        self.assertNotIn("Executors.newSingleThreadExecutor()", source)
 
     def test_provider_metadata_resolution_is_parallel_batched_complete_and_deterministic(self):
         source = COORDINATOR.read_text()
