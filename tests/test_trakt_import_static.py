@@ -85,8 +85,10 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
     def test_native_preference_state_updates_after_auth_changes(self):
         source = PREFERENCE.read_text()
         self.assertIn('refreshState()', source)
-        self.assertIn('setTitle(connected ? "Trakt (Connected)" : "Trakt")', source)
-        self.assertIn('setSummary(connected ?', source)
+        self.assertNotIn('setTitle(', source)
+        self.assertNotIn('setSummary(', source)
+        self.assertIn('setRuntimeField("ـˆ", connected', source)
+        self.assertIn('setRuntimeField("ᴵʼ", connected', source)
         self.assertIn('TraktDeviceAuth.open(context, this::refreshState)', source)
 
     def test_android_json_reads_are_chunk_bounded_before_accumulation(self):

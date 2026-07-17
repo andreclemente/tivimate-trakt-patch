@@ -16,9 +16,20 @@ public final class NativeTraktPreference extends Preference {
 
     private void refreshState() {
         boolean connected = TraktDeviceAuth.isConnected(context);
-        setTitle(connected ? "Trakt (Connected)" : "Trakt");
-        setSummary(connected ? "Account connected — watched-progress sync active"
+        setRuntimeField("ـˆ", connected ? "Trakt (Connected)" : "Trakt");
+        setRuntimeField("ᴵʼ", connected ? "Account connected — watched-progress sync active"
                 : "Connect your Trakt account");
+    }
+
+    /** TiviMate's bundled AndroidX Preference API is name-obfuscated at runtime. */
+    private void setRuntimeField(String name, CharSequence value) {
+        try {
+            java.lang.reflect.Field field = Preference.class.getDeclaredField(name);
+            field.setAccessible(true);
+            field.set(this, value);
+        } catch (ReflectiveOperationException ignored) {
+            // The settings bridge also initializes these fields before insertion.
+        }
     }
 
     // Keep the proven native click path that opens the authorization dialog.
