@@ -272,28 +272,43 @@ public final class TraktDeviceAuth {
         if (stateChanged != null) stateChanged.run();
         NETWORK.execute(new Runnable() {
             @Override public void run() {
-                boolean revoked = false;
-                try {
-                    if (refreshToken != null) {
-                        JSONObject request = new JSONObject();
-                        request.put("token", refreshToken);
-                        post(REVOKE_URL, request);
+                final boolean remoteRevoked = revokeWithRetry(refreshToken);
+                MAIN.post(new Runnable() {
+                    @Override public void run() {
+                        Toast.makeText(context, remoteRevoked ? "Trakt disconnected"
+                                        : "Disconnected locally; remove TiviMate in Trakt settings",
+                                Toast.LENGTH_LONG).show();
                     }
-                    revoked = true;
-                } catch (Exception ignored) {
-                    // Local disconnect is authoritative even if remote revocation is unavailable.
-                } finally {
-                    final boolean remoteRevoked = revoked;
-                    MAIN.post(new Runnable() {
-                        @Override public void run() {
-                            Toast.makeText(context, remoteRevoked ? "Trakt disconnected"
-                                    : "Trakt disconnected locally; remote revoke will need retry",
-                                    Toast.LENGTH_LONG).show();
-                        }
-                    });
-                }
+                });
             }
         });
+    }
+
+    private static boolean revokeWithRetry(String refreshToken) {
+        if (refreshToken == null) return true;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                JSONObject request = new JSONObject();
+                request.put("token", refreshToken);
+                post(REVOKE_URL, request);
+                return true;
+            } catch (Exception error) {
+                if (attempt == 2 || !isRetryableRevocationError(error)) return false;
+                try {
+                    Thread.sleep(1000L << attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isRetryableRevocationError(Exception error) {
+        return error instanceof java.io.IOException
+                || error instanceof DeviceAuthorizationException
+                && isRetryableStatus(((DeviceAuthorizationException) error).status);
     }
 
     private static String disconnectLocally(Context context) {

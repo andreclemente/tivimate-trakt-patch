@@ -18,6 +18,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,20 +104,22 @@ public final class TraktImportCoordinator {
         }
     }
 
-    public static void requestOpenedMovie(int xcId) {
+    public static void requestOpenedMovie(long playlistId, int xcId) {
         final Context context = applicationContext;
-        if (context == null || xcId <= 0 || !TraktDeviceAuth.moviesEnabled(context)) return;
-        requestOpened(context, "movie", xcId);
+        if (context == null || playlistId <= 0L || xcId <= 0
+                || !TraktDeviceAuth.moviesEnabled(context)) return;
+        requestOpened(context, "movie", playlistId, xcId);
     }
 
-    public static void requestOpenedSeries(int xcId) {
+    public static void requestOpenedSeries(long playlistId, int xcId) {
         final Context context = applicationContext;
-        if (context == null || xcId <= 0 || !TraktDeviceAuth.showsEnabled(context)) return;
-        requestOpened(context, "episode", xcId);
+        if (context == null || playlistId <= 0L || xcId <= 0
+                || !TraktDeviceAuth.showsEnabled(context)) return;
+        requestOpened(context, "episode", playlistId, xcId);
     }
 
-    private static void requestOpened(Context context, String media, int xcId) {
-        String key = media + ":" + xcId;
+    private static void requestOpened(Context context, String media, long playlistId, int xcId) {
+        String key = media + ":" + playlistId + ":" + xcId;
         synchronized (ON_DEMAND_LOCK) {
             OnDemandRequest existing = ON_DEMAND_REQUESTS.get(key);
             if (existing != null) {
@@ -127,7 +130,8 @@ public final class TraktImportCoordinator {
                 Log.w(TAG, "on-demand queue full");
                 return;
             }
-            ON_DEMAND_REQUESTS.put(key, new OnDemandRequest(key, context, media, xcId));
+            ON_DEMAND_REQUESTS.put(key,
+                    new OnDemandRequest(key, context, media, playlistId, xcId));
             if (onDemandWorkerScheduled) return;
             onDemandWorkerScheduled = true;
             try {
@@ -159,7 +163,7 @@ public final class TraktImportCoordinator {
                 }
             }
             try {
-                syncOpened(request.context, request.media, request.xcId);
+                syncOpened(request.context, request.media, request.playlistId, request.xcId);
             } catch (Exception error) {
                 Log.w(TAG, "on-demand failed media="
                         + ("movie".equals(request.media) ? "movie" : "series")
@@ -270,7 +274,8 @@ public final class TraktImportCoordinator {
         }
     }
 
-    private static void syncOpened(Context context, String type, int xcId) throws Exception {
+    private static void syncOpened(Context context, String type, long playlistId,
+                                   int xcId) throws Exception {
         CacheSnapshot snapshot = null;
         SQLiteDatabase database = null;
         boolean providerReconciled = false;
@@ -281,7 +286,8 @@ public final class TraktImportCoordinator {
             database = SQLiteDatabase.openDatabase(file.getAbsolutePath(), null,
                     SQLiteDatabase.OPEN_READWRITE);
             boolean movie = "movie".equals(type);
-            Candidate opened = openedCandidate(database, movie ? "movies" : "series", xcId);
+            Candidate opened = openedCandidate(database, movie ? "movies" : "series",
+                    playlistId, xcId);
             if (opened == null) return;
             JSONObject provider = providerInfo(opened, movie);
             ProviderIdentity identity = providerIdentity(provider.optJSONObject("info"),
@@ -296,6 +302,17 @@ public final class TraktImportCoordinator {
                 addWatchedMovies(snapshot.movies, watchedMovies);
             } else {
                 addWatchedShows(openedWatchedShows(snapshot.shows, identity, context), watchedShows);
+                if (watchedShows.isEmpty()) {
+                    Target empty = new Target();
+                    empty.type = "episode";
+                    empty.tmdb = identity.tmdb;
+                    empty.imdb = identity.imdb;
+                    empty.title = opened.title;
+                    empty.year = opened.year;
+                    empty.authoritativeSeriesSet = true;
+                    empty.authoritativeEmptySeriesSet = true;
+                    put(watchedShows, empty);
+                }
             }
             retainIdentity(active, identity, type);
             retainIdentity(watchedMovies, identity, type);
@@ -319,15 +336,17 @@ public final class TraktImportCoordinator {
         }
     }
 
-    private static Candidate openedCandidate(SQLiteDatabase database, String table, int xcId) {
+    private static Candidate openedCandidate(SQLiteDatabase database, String table,
+                                             long playlistId, int xcId) {
         Set<String> names = columns(database, table);
         String titleColumn = names.contains("name") ? "name" :
                 (names.contains("title") ? "title" : null);
         if (titleColumn == null) return null;
         Cursor cursor = database.rawQuery("SELECT c.id,c.xc_id,c." + titleColumn
                         + ",p.url FROM " + table
-                        + " c JOIN playlists p ON p.id=c.playlist_id WHERE c.xc_id=? "
-                        + "ORDER BY c.id LIMIT 1", new String[]{String.valueOf(xcId)});
+                        + " c JOIN playlists p ON p.id=c.playlist_id "
+                        + "WHERE c.playlist_id=? AND c.xc_id=? "
+                        + "ORDER BY c.id LIMIT 1", new String[]{String.valueOf(playlistId), String.valueOf(xcId)});
         try {
             if (!cursor.moveToFirst()) return null;
             Candidate result = new Candidate();
@@ -354,11 +373,13 @@ public final class TraktImportCoordinator {
                 long traktId = ids == null ? 0L : ids.optLong("trakt", 0L);
                 String token = TraktDeviceAuth.accessToken(context);
                 String clientId = TraktDeviceAuth.clientId(context);
-                if (traktId <= 0L || token == null || clientId == null) continue;
+                if (traktId <= 0L || token == null || clientId == null) {
+                    throw new IOException("watched progress unavailable");
+                }
                 JSONObject progress = fetchObject("/shows/" + traktId
                                 + "/progress/watched?hidden=false&specials=false&count_specials=false",
                         token, clientId, context);
-                if (progress == null) continue;
+                if (progress == null) throw new IOException("watched progress unavailable");
                 copy.put("seasons", completedSeasons(progress));
             }
             result.put(copy);
@@ -393,7 +414,9 @@ public final class TraktImportCoordinator {
         CacheSnapshot snapshot = isFresh(preferredSnapshot, System.currentTimeMillis())
                 ? preferredSnapshot : freshCache(context);
         JSONArray movies = snapshot.movies;
-        JSONArray shows = snapshot.shows;
+        // enrichWatchedShows mutates wrappers; keep the startup cache immutable for
+        // concurrent detail-open reads on the separate on-demand executor.
+        JSONArray shows = new JSONArray(snapshot.shows.toString());
         JSONArray playback = snapshot.playback;
         if (TraktDeviceAuth.showsEnabled(context)) {
             token = TraktDeviceAuth.accessToken(context);
@@ -1030,7 +1053,8 @@ public final class TraktImportCoordinator {
             state.providerIds.addAll(match.providerEpisodeIds);
             if (match.target.authoritativeSeriesSet) state.authoritativeMaterialized = true;
             if (!match.episodeXcId.matches("[0-9]+")) {
-                if (match.target.authoritativeSeriesSet) state.complete = false;
+                if (match.target.authoritativeSeriesSet
+                        && !match.target.authoritativeEmptySeriesSet) state.complete = false;
             } else {
                 state.keepIds.add(match.episodeXcId);
                 if (state.preferredEpisodeId.isEmpty()) {
@@ -1042,7 +1066,7 @@ public final class TraktImportCoordinator {
         int changed = 0;
         for (SeriesReconciliation state : bySeries.values()) {
             if (!state.authoritativeMaterialized || !state.complete
-                    || state.providerIds.isEmpty() || state.keepIds.isEmpty()) continue;
+                    || state.providerIds.isEmpty()) continue;
             List<Long> staleRows = new ArrayList<>();
             List<String> staleEpisodeIds = new ArrayList<>();
             Cursor rows = database.rawQuery(
@@ -1306,14 +1330,16 @@ public final class TraktImportCoordinator {
         final String key;
         final Context context;
         final String media;
+        final long playlistId;
         final int xcId;
         boolean running;
         boolean rerun;
 
-        OnDemandRequest(String key, Context context, String media, int xcId) {
+        OnDemandRequest(String key, Context context, String media, long playlistId, int xcId) {
             this.key = key;
             this.context = context;
             this.media = media;
+            this.playlistId = playlistId;
             this.xcId = xcId;
         }
     }
@@ -1335,6 +1361,7 @@ public final class TraktImportCoordinator {
         int year, season, episode;
         boolean watched;
         boolean authoritativeSeriesSet;
+        boolean authoritativeEmptySeriesSet;
         double progress;
         long traktDurationMs;
         String key() { return type + ':' + (!tmdb.isEmpty() ? "tmdb:" + tmdb : "imdb:" + imdb) + ':' + season + ':' + episode; }

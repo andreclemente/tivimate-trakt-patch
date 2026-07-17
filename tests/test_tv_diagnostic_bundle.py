@@ -1,6 +1,7 @@
 """Static guardrails for TiviMate's native Android-TV Trakt settings entry."""
 from pathlib import Path
 import json
+import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -144,17 +145,17 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('onSeriesInfoRequested', patch)
         self.assertTrue(ON_DEMAND_BRIDGE.exists(), "On-demand bridge is missing")
         bridge = ON_DEMAND_BRIDGE.read_text()
-        self.assertIn('TraktImportCoordinator.requestOpenedMovie(xcId);', bridge)
-        self.assertIn('TraktImportCoordinator.requestOpenedSeries(xcId);', bridge)
+        self.assertIn('TraktImportCoordinator.requestOpenedMovie(playlistId, xcId);', bridge)
+        self.assertIn('TraktImportCoordinator.requestOpenedSeries(playlistId, xcId);', bridge)
         coordinator = (ROOT / 'morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension/TraktImportCoordinator.java').read_text()
         self.assertIn('if (TraktDeviceAuth.isConnected(applicationContext)) requestCacheRefresh();', coordinator)
-        self.assertIn('public static void requestOpenedMovie(int xcId)', coordinator)
-        self.assertIn('public static void requestOpenedSeries(int xcId)', coordinator)
+        self.assertIn('public static void requestOpenedMovie(long playlistId, int xcId)', coordinator)
+        self.assertIn('public static void requestOpenedSeries(long playlistId, int xcId)', coordinator)
         self.assertIn('CACHE_MAX_AGE_MS', coordinator)
-        self.assertIn('requestOpened(context, "movie", xcId)', coordinator)
-        self.assertIn('requestOpened(context, "episode", xcId)', coordinator)
-        self.assertIn('syncOpened(request.context, request.media, request.xcId)', coordinator)
-        self.assertIn('WHERE c.xc_id=?', coordinator)
+        self.assertIn('requestOpened(context, "movie", playlistId, xcId)', coordinator)
+        self.assertIn('requestOpened(context, "episode", playlistId, xcId)', coordinator)
+        self.assertIn('syncOpened(request.context, request.media, request.playlistId, request.xcId)', coordinator)
+        self.assertIn('WHERE c.playlist_id=? AND c.xc_id=?', coordinator)
         self.assertNotIn('OPEN_FALLBACK_CHECKPOINT_KEY', coordinator)
         self.assertIn('requestFallbackImport', coordinator)
         self.assertNotIn('params.toString()', bridge)
@@ -228,6 +229,25 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
             if any(term in text for term in forbidden):
                 violations.append(str(path.relative_to(ROOT)))
         self.assertEqual([], violations, f"non-TiviMate product references: {violations}")
+
+    def test_major_release_metadata_is_consistent(self):
+        descriptor = json.loads(PATCH_BUNDLE_DESCRIPTOR.read_text())
+        self.assertEqual("1.0.0", descriptor["version"])
+        self.assertEqual("TiviMate Trakt v1.0.0", descriptor["display_name"])
+        self.assertTrue(descriptor["download_url"].endswith("/dist/patches-1.0.0.mpp"))
+        self.assertIn("version = 1.0.0", (ROOT / "morphe/gradle.properties").read_text())
+        self.assertIn("Version: `1.0.0`", (ROOT / "README.md").read_text())
+
+    def test_major_release_descriptor_artifact_is_present_and_tracked(self):
+        descriptor = json.loads(PATCH_BUNDLE_DESCRIPTOR.read_text())
+        relative = descriptor["download_url"].split("/main/", 1)[1]
+        artifact = ROOT / relative
+        self.assertTrue(artifact.is_file(), f"Missing release artifact: {relative}")
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", relative],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(0, tracked.returncode, f"Release artifact is not tracked: {relative}")
 
     def test_manager_descriptor_uses_local_datetime_without_timezone_suffix(self):
         descriptor = json.loads(PATCH_BUNDLE_DESCRIPTOR.read_text())

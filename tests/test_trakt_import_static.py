@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 JAVA = ROOT / "morphe/extensions/trakt/src/main/java/com/tivimate/traktpatch/extension"
 COORDINATOR = JAVA / "TraktImportCoordinator.java"
 BRIDGE = JAVA / "TraktProgressBridge.java"
+ON_DEMAND_BRIDGE = JAVA / "TraktOnDemandBridge.java"
 AUTH = JAVA / "TraktDeviceAuth.java"
 SYNC = JAVA / "TraktSyncClient.java"
 PREFERENCE = JAVA / "NativeTraktPreference.java"
@@ -39,6 +40,12 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('disconnectLocally', source)
         self.assertIn('NETWORK.execute', source)
         self.assertIn('request.put("token", refreshToken)', source)
+        self.assertIn('revokeWithRetry(refreshToken)', source)
+        self.assertIn('for (int attempt = 0; attempt < 3; attempt++)', source)
+        self.assertIn('isRetryableRevocationError(error)', source)
+        self.assertIn('Thread.sleep(1000L << attempt)', source)
+        self.assertIn('error instanceof java.io.IOException', source)
+        self.assertIn('isRetryableStatus(((DeviceAuthorizationException) error).status)', source)
         self.assertIn('finally', source)
         self.assertIn('stateChanged.run()', source)
 
@@ -235,16 +242,41 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         source = COORDINATOR.read_text()
         self.assertIn("MAX_ON_DEMAND_KEYS = 32", source)
         self.assertIn("new ArrayBlockingQueue<Runnable>(1)", source)
-        self.assertIn('String key = media + ":" + xcId;', source)
+        self.assertIn('String key = media + ":" + playlistId + ":" + xcId;', source)
         self.assertIn("ON_DEMAND_REQUESTS.get(key)", source)
         self.assertIn("existing.rerun = true", source)
         self.assertIn("ON_DEMAND_REQUESTS.size() >= MAX_ON_DEMAND_KEYS", source)
         self.assertIn("drainOnDemand()", source)
         movie = source[source.index("public static void requestOpenedMovie"):source.index("public static void requestOpenedSeries")]
         series = source[source.index("public static void requestOpenedSeries"):source.index("public static void requestImport")]
-        self.assertIn('requestOpened(context, "movie", xcId)', movie)
-        self.assertIn('requestOpened(context, "episode", xcId)', series)
+        self.assertIn('requestOpened(context, "movie", playlistId, xcId)', movie)
+        self.assertIn('requestOpened(context, "episode", playlistId, xcId)', series)
         self.assertNotIn("IMPORTS.execute", movie + series)
+
+    def test_detail_open_identity_is_scoped_to_the_exact_playlist(self):
+        bridge = ON_DEMAND_BRIDGE.read_text()
+        coordinator = COORDINATOR.read_text()
+        self.assertIn("private static long playlistId(Object params)", bridge)
+        self.assertIn("field.getType() == long.class", bridge)
+        self.assertIn("java.lang.reflect.Modifier.isTransient(field.getModifiers())", bridge)
+        self.assertIn("if (++candidateCount > 1) return 0L", bridge)
+        self.assertIn("requestOpenedMovie(playlistId, xcId)", bridge)
+        self.assertIn("requestOpenedSeries(playlistId, xcId)", bridge)
+        self.assertIn("if (playlistId <= 0L) {", bridge)
+        self.assertIn("TraktImportCoordinator.requestImport()", bridge)
+        self.assertIn("WHERE c.playlist_id=? AND c.xc_id=?", coordinator)
+        self.assertIn("new String[]{String.valueOf(playlistId), String.valueOf(xcId)}", coordinator)
+
+    def test_opened_series_can_authoritatively_clear_its_final_watched_episode(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("authoritativeEmptySeriesSet", source)
+        self.assertIn("empty.authoritativeSeriesSet = true", source)
+        self.assertIn("empty.authoritativeEmptySeriesSet = true", source)
+        self.assertIn('throw new IOException("watched progress unavailable")', source)
+        reconcile = source[source.index("private static int reconcileEpisodes("):
+                           source.index("private static int reconcileSeriesParent(")]
+        self.assertIn("match.target.authoritativeEmptySeriesSet", reconcile)
+        self.assertNotIn("state.keepIds.isEmpty()", reconcile)
 
     def test_cache_refresh_is_single_flight_and_failure_backed_off(self):
         source = COORDINATOR.read_text()
@@ -254,6 +286,11 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn("now < cacheRefreshRetryAt", source)
         self.assertIn("CACHE_REFRESH_RUNNING.set(false)", source)
         self.assertIn("refreshCacheSingleFlight(context)", source)
+
+    def test_maintenance_enrichment_does_not_mutate_shared_cache_json(self):
+        source = COORDINATOR.read_text()
+        self.assertIn("JSONArray shows = new JSONArray(snapshot.shows.toString())", source)
+        self.assertNotIn("JSONArray shows = snapshot.shows;", source)
 
     def test_open_fallback_covers_early_failures_and_reuses_fresh_cache(self):
         source = COORDINATOR.read_text()
