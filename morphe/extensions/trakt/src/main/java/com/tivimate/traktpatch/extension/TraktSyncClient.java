@@ -5,6 +5,8 @@ import android.util.Log;
 
 import org.json.JSONObject;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -14,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 public final class TraktSyncClient {
     private static final String TAG = "TiviMateTraktSync";
     private static final String TRAKT_API = "https://api.trakt.tv";
+    private static final int MAX_ERROR_RESPONSE_CHARS = 4096;
     private static volatile Context applicationContext;
 
     private TraktSyncClient() { }
@@ -142,11 +145,34 @@ public final class TraktSyncClient {
                     Thread.sleep(1000L);
                     continue;
                 }
-                Log.w(TAG, mediaType + " scrobble rejected status=" + status);
+                Log.w(TAG, mediaType + " scrobble rejected status=" + status
+                        + " reason=" + errorSummary(connection));
                 return;
             } finally {
                 connection.disconnect();
             }
+        }
+    }
+
+    private static String errorSummary(HttpURLConnection connection) {
+        InputStream stream = connection.getErrorStream();
+        if (stream == null) return "unavailable";
+        try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            StringBuilder text = new StringBuilder();
+            char[] buffer = new char[512];
+            while (text.length() < MAX_ERROR_RESPONSE_CHARS) {
+                int count = reader.read(buffer, 0,
+                        Math.min(buffer.length, MAX_ERROR_RESPONSE_CHARS - text.length()));
+                if (count < 0) break;
+                text.append(buffer, 0, count);
+            }
+            JSONObject response = new JSONObject(text.toString());
+            String value = response.optString("error_description",
+                    response.optString("error", "unspecified"));
+            return value.substring(0, Math.min(value.length(), 256))
+                    .replaceAll("[^A-Za-z0-9_.:-]+", "_");
+        } catch (Exception ignored) {
+            return "unparseable";
         }
     }
 }

@@ -201,6 +201,15 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertNotIn('Log.i(TAG, accessToken', client)
         self.assertNotIn('error.getMessage()', client)
 
+    def test_scrobble_rejection_logs_bounded_sanitized_trakt_reason(self):
+        client = SYNC_CLIENT.read_text()
+        self.assertIn('connection.getErrorStream()', client)
+        self.assertIn('MAX_ERROR_RESPONSE_CHARS = 4096', client)
+        self.assertIn('errorSummary(connection)', client)
+        self.assertIn('reason=" + errorSummary', client)
+        self.assertNotIn('Log.w(TAG, payload.toString()', client)
+        self.assertNotIn('Log.w(TAG, body', client)
+
     def test_episode_progress_resolves_series_identity_then_posts_scrobble(self):
         bridge = PROGRESS_BRIDGE.read_text()
         resolver = METADATA_RESOLVER.read_text()
