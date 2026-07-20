@@ -321,6 +321,25 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('values.put("last_turn_on_time", 0L)', update)
         self.assertIn("localPosition == 0L && localLastTurn == 0L", update)
 
+    def test_authoritative_empty_reconciliation_requires_uncached_refresh(self):
+        source = COORDINATOR.read_text()
+        opened = source[source.index("private static void syncOpened("):
+                        source.index("private static Candidate openedCandidate(")]
+        self.assertIn("refreshCacheUncachedSingleFlight(context)", opened)
+        refresh = source[source.index("private static CacheSnapshot refreshCacheUncachedSingleFlight("):
+                         source.index("private static CacheSnapshot refreshCacheHeld(")]
+        self.assertIn("CACHE_REFRESH_RUNNING.compareAndSet(false, true)", refresh)
+        self.assertIn("return refreshCacheHeld(context)", refresh)
+        self.assertNotIn("isFresh(", refresh)
+        refresh_call = opened.index("refreshCacheUncachedSingleFlight(context)")
+        self.assertLess(opened.index("if (authoritativeEmpty)"), refresh_call)
+        self.assertEqual(opened.count("scopeOpenedTargets(snapshot"), 2)
+        self.assertLess(refresh_call, opened.index("empty.authoritativeEmptyMovieState = true"))
+        self.assertLess(refresh_call, opened.index("empty.authoritativeEmptySeriesSet = true"))
+        self.assertLess(refresh_call, opened.index("providerReconciled = apply("))
+        self.assertEqual(opened.count("empty.authoritativeEmptyMovieState = true"), 1)
+        self.assertEqual(opened.count("empty.authoritativeEmptySeriesSet = true"), 1)
+
     def test_cache_refresh_is_single_flight_and_failure_backed_off(self):
         source = COORDINATOR.read_text()
         self.assertIn("CACHE_REFRESH_RUNNING.compareAndSet(false, true)", source)

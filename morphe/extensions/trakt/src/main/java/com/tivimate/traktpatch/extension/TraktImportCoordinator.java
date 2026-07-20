@@ -283,6 +283,16 @@ public final class TraktImportCoordinator {
         return refreshCacheHeld(context);
     }
 
+    /** A destructive absence decision must never be authorized by the age-based cache. */
+    private static CacheSnapshot refreshCacheUncachedSingleFlight(Context context) throws Exception {
+        long now = System.currentTimeMillis();
+        if (now < cacheRefreshRetryAt) throw new IOException("Trakt cache refresh backed off");
+        if (!CACHE_REFRESH_RUNNING.compareAndSet(false, true)) {
+            throw new IOException("Trakt cache refresh already running");
+        }
+        return refreshCacheHeld(context);
+    }
+
     private static CacheSnapshot refreshCacheHeld(Context context) throws Exception {
         try {
             CacheSnapshot value = refreshCache(context);
@@ -321,17 +331,23 @@ public final class TraktImportCoordinator {
             LinkedHashMap<String, Target> active = new LinkedHashMap<>();
             LinkedHashMap<String, Target> watchedMovies = new LinkedHashMap<>();
             LinkedHashMap<String, Target> watchedShows = new LinkedHashMap<>();
-            addPlayback(snapshot.playback, active, context);
-            if (movie) {
-                addWatchedMovies(snapshot.movies, watchedMovies);
-            } else {
-                addWatchedShows(openedWatchedShows(snapshot.shows, identity, context), watchedShows);
+            scopeOpenedTargets(snapshot, movie, type, identity, context,
+                    active, watchedMovies, watchedShows);
+            boolean authoritativeEmpty = movie
+                    ? active.isEmpty() && watchedMovies.isEmpty()
+                    : watchedShows.isEmpty();
+            if (authoritativeEmpty) {
+                // Cached presence is safe for monotonic imports, but cached absence can
+                // erase progress created after the snapshot. Fail closed unless all
+                // authoritative routes can be fetched again right now.
+                snapshot = refreshCacheUncachedSingleFlight(context);
+                active.clear();
+                watchedMovies.clear();
+                watchedShows.clear();
+                scopeOpenedTargets(snapshot, movie, type, identity, context,
+                        active, watchedMovies, watchedShows);
             }
-            retainIdentity(active, identity, type);
-            retainIdentity(watchedMovies, identity, type);
-            retainIdentity(watchedShows, identity, type);
-            // Both cache routes are complete authoritative snapshots. Materialize an
-            // empty target only after each has been scoped to the opened stable identity.
+            // Materialize destructive absence only from the mandatory uncached refresh.
             if (movie && active.isEmpty() && watchedMovies.isEmpty()) {
                 Target empty = new Target();
                 empty.type = "movie";
@@ -371,6 +387,22 @@ public final class TraktImportCoordinator {
             if (database != null) database.close();
             if (!providerReconciled) requestFallbackImport(context, snapshot);
         }
+    }
+
+    private static void scopeOpenedTargets(CacheSnapshot snapshot, boolean movie, String type,
+                                           ProviderIdentity identity, Context context,
+                                           Map<String, Target> active,
+                                           Map<String, Target> watchedMovies,
+                                           Map<String, Target> watchedShows) throws Exception {
+        addPlayback(snapshot.playback, active, context);
+        if (movie) {
+            addWatchedMovies(snapshot.movies, watchedMovies);
+        } else {
+            addWatchedShows(openedWatchedShows(snapshot.shows, identity, context), watchedShows);
+        }
+        retainIdentity(active, identity, type);
+        retainIdentity(watchedMovies, identity, type);
+        retainIdentity(watchedShows, identity, type);
     }
 
     private static Candidate openedCandidate(SQLiteDatabase database, String table,
