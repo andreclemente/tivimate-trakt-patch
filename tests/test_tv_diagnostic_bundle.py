@@ -207,6 +207,9 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('MAX_ERROR_RESPONSE_CHARS = 4096', client)
         self.assertIn('errorSummary(connection)', client)
         self.assertIn('reason=" + errorSummary', client)
+        self.assertIn('response.optJSONObject("errors")', client)
+        self.assertIn('action=" + action', client)
+        self.assertIn('progress_bucket=" + progressBucket', client)
         self.assertNotIn('Log.w(TAG, payload.toString()', client)
         self.assertNotIn('Log.w(TAG, body', client)
 

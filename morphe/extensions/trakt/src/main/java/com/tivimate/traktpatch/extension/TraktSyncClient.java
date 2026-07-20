@@ -3,6 +3,7 @@ package com.tivimate.traktpatch.extension;
 import android.content.Context;
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.InputStream;
@@ -11,6 +12,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 
 /** Sends already-resolved playback identity directly to Trakt. */
 public final class TraktSyncClient {
@@ -136,6 +138,8 @@ public final class TraktSyncClient {
                              String mediaType, Context context,
                              long authorizationGeneration) throws Exception {
         byte[] body = payload.toString().getBytes(StandardCharsets.UTF_8);
+        String action = path.substring(path.lastIndexOf('/') + 1);
+        int progressBucket = ((int) payload.getDouble("progress") / 5) * 5;
         for (int attempt = 0; attempt < 2; attempt++) {
             if (!TraktDeviceAuth.isCurrentAccessToken(
                     context, authorizationGeneration, accessToken)) return;
@@ -157,9 +161,8 @@ public final class TraktSyncClient {
                 if (!TraktDeviceAuth.isCurrentAccessToken(
                         context, authorizationGeneration, accessToken)) return;
                 if (status >= 200 && status < 300) {
-                    Log.i(TAG, mediaType + " scrobble accepted action="
-                            + path.substring(path.lastIndexOf('/') + 1)
-                            + " progress_bucket=" + ((int) payload.getDouble("progress") / 5) * 5);
+                    Log.i(TAG, mediaType + " scrobble accepted action=" + action
+                            + " progress_bucket=" + progressBucket);
                     return;
                 }
                 if (status == 401 && attempt == 0) {
@@ -178,7 +181,8 @@ public final class TraktSyncClient {
                     Thread.sleep(1000L);
                     continue;
                 }
-                Log.w(TAG, mediaType + " scrobble rejected status=" + status
+                Log.w(TAG, mediaType + " scrobble rejected action=" + action
+                        + " progress_bucket=" + progressBucket + " status=" + status
                         + " reason=" + errorSummary(connection));
                 return;
             } finally {
@@ -202,6 +206,18 @@ public final class TraktSyncClient {
             JSONObject response = new JSONObject(text.toString());
             String value = response.optString("error_description",
                     response.optString("error", "unspecified"));
+            JSONObject errors = response.optJSONObject("errors");
+            if ("unspecified".equals(value) && errors != null) {
+                Iterator<String> keys = errors.keys();
+                if (keys.hasNext()) {
+                    String key = keys.next();
+                    Object detail = errors.opt(key);
+                    if (detail instanceof JSONArray && ((JSONArray) detail).length() > 0) {
+                        detail = ((JSONArray) detail).opt(0);
+                    }
+                    value = key + ":" + String.valueOf(detail);
+                }
+            }
             return value.substring(0, Math.min(value.length(), 256))
                     .replaceAll("[^A-Za-z0-9_.:-]+", "_");
         } catch (Exception ignored) {
