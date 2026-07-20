@@ -1,6 +1,6 @@
 const TRAKT_API = 'https://api.trakt.tv';
 const REDIRECT_URI = 'https://andreclemente.github.io/tivimate-trakt-patch/oauth/callback/';
-const WORKER_BUILD = '2026-07-15-auth-bootstrap-v1';
+const WORKER_BUILD = '2026-07-20-v1-release';
 const MAX_AUTH_REQUEST_BYTES = 16 * 1024;
 const MAX_OAUTH_RESPONSE_BYTES = 1024 * 1024;
 const JSON_HEADERS = {

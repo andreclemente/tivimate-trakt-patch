@@ -44,6 +44,14 @@ test('device code request exposes no secret to the TV client', async () => {
   assert.deepEqual(await forwarded.json(), { client_id: 'public-client-id' });
 });
 
+test('release responses identify the production worker build', async () => {
+  const response = await handle(
+    new Request('https://proxy.example/v1/client'),
+    { TRAKT_CLIENT_ID: 'public-client-id' },
+  );
+  assert.equal(response.headers.get('x-tivimate-trakt-worker-build'), '2026-07-20-v1-release');
+});
+
 test('client bootstrap exposes only the public client id and needs no secret', async () => {
   const response = await handle(
     new Request('https://proxy.example/v1/client'),

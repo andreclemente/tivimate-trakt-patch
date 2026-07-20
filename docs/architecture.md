@@ -34,9 +34,10 @@ Xtream playlist wrappers are parsed without decoding and re-encoding credential 
 
 ## Progress semantics
 
-Playback position and duration are milliseconds. Progress is clamped to `0..100`:
+Playback position and duration are milliseconds. Progress is clamped to `0..100`.
+Pause events below Trakt's 1% minimum are retained locally and not submitted:
 
-- `<80%`: `/scrobble/pause`
+- `1%..<80%`: `/scrobble/pause`
 - `>=80%`: `/scrobble/stop`
 
 ## Inbound contract
@@ -68,4 +69,4 @@ Runtime acceptance requires visible native watched-state proof for one Trakt-onl
 
 ## Authentication
 
-Only Trakt Device Authorization, token refresh, and public-client-ID bootstrap pass through the Worker. All watched/playback reads and scrobble writes go directly from Android to `https://api.trakt.tv`. The client secret never enters the APK; the public client ID is stored alongside tokens inside the Android Keystore-backed AES/GCM encrypted JSON. Existing installs fetch `/v1/client` once when that field is absent. Expired access tokens are refreshed through the Worker; `401/403` invalidates local auth; `429/5xx` receives one bounded retry.
+Only Trakt Device Authorization, token refresh, public-client-ID bootstrap, and OAuth token revocation pass through the Worker. All watched/playback reads and scrobble writes go directly from Android to `https://api.trakt.tv`. The client secret never enters the APK; the public client ID is stored alongside tokens inside the Android Keystore-backed AES/GCM encrypted JSON. Existing installs fetch `/v1/client` once when that field is absent. Expired access tokens are refreshed through the Worker; an authoritative resource-server `401` triggers one refresh attempt, while transient `429/5xx` responses receive bounded retry handling. Disconnect serializes against refresh, clears local credentials immediately, and asks the Worker to revoke the latest refresh token.

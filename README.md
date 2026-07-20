@@ -40,14 +40,14 @@ This project does not bypass TiviMate licensing, DRM, purchases, provider contro
 ## Build and test
 
 ```sh
-python3 -m unittest -v \
-  tests.test_progress_math \
-  tests.test_xtream_url_builder \
-  tests.test_tv_diagnostic_bundle
+python3 -m unittest discover -s tests -v
 node --test oauth-worker/test/worker.test.mjs
 
 cd morphe
 ./gradlew --no-daemon :extensions:trakt:assembleRelease :patches:buildAndroid
+cp patches/build/libs/patches-1.0.0.mpp ../dist/patches-1.0.0.mpp
+cd ..
+sha256sum -c SHA256SUMS
 ```
 
 Patch verification requires a legally obtained TiviMate 5.1.6 APK and Morphe CLI:

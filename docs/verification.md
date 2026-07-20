@@ -11,7 +11,7 @@ A release is complete only when all gates pass:
 7. Real movie playback producing an accepted authenticated Trakt scrobble.
 8. Real episode playback producing an accepted authenticated Trakt scrobble.
 9. Runtime log check showing no provider URL, credential, or token markers.
-10. Remote descriptor and artifact byte-for-byte verification.
+10. Remote descriptor and artifact byte-for-byte verification against the tracked `SHA256SUMS` digest.
 11. Upgrade install preserves authorization and native watched/resume state.
 12. Imported writes produce no outbound Trakt echo; later local playback does.
 13. Force-stop/restart and device reboot preserve full watched and partial-resume state.
@@ -31,3 +31,12 @@ episode scrobble accepted action=pause ...
 ```
 
 Never preserve raw log lines containing provider URLs or credentials.
+
+Release integrity check:
+
+```sh
+sha256sum -c SHA256SUMS
+curl -fsS https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-1.0.0.mpp -o /tmp/patches-1.0.0.remote.mpp
+cmp dist/patches-1.0.0.mpp /tmp/patches-1.0.0.remote.mpp
+sha256sum /tmp/patches-1.0.0.remote.mpp
+```

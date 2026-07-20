@@ -5,7 +5,7 @@ Production Morphe bundle for TiviMate Trakt sync.
 ## Modules
 
 - `patches/`: settings bootstrap and committed-transaction runtime hook.
-- `extensions/trakt/`: native settings UI, encrypted Device Authorization, progress capture, Xtream metadata resolution, and Worker-backed Trakt scrobbling.
+- `extensions/trakt/`: native settings UI, encrypted Device Authorization, progress capture, Xtream metadata resolution, direct Trakt API synchronization, and Worker-backed OAuth bootstrap/refresh/revocation.
 
 No separate shared extension is required; required helper classes are packaged inside `extensions/trakt.mpe`.
 
