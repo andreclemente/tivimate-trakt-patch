@@ -86,6 +86,26 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertGreaterEqual(sync.count('TraktDeviceAuth.isCurrentAccessToken('), 5)
         self.assertIn('synchronized (OUTBOUND_LOCK)', sync)
 
+    def test_outbound_identity_selection_rejects_conflicting_valid_aliases(self):
+        sync = SYNC.read_text()
+        self.assertIn('reason=conflicting_stable_id', sync)
+        self.assertIn('collectTmdb', sync)
+        self.assertIn('collectImdb', sync)
+        self.assertIn('"tmdb_id", "tmdb"', sync)
+        self.assertIn('"imdb_id", "imdb"', sync)
+        self.assertGreaterEqual(sync.count('values.size() > 1'), 2)
+        self.assertNotIn('if (tmdb.length() == 0) tmdb =', sync)
+        self.assertNotIn('if (imdb.length() == 0) imdb =', sync)
+
+    def test_outbound_coalescing_is_namespaced_by_hashed_playlist_identity(self):
+        resolver = (JAVA / "XtreamMetadataResolver.java").read_text()
+        self.assertIn('MessageDigest.getInstance("SHA-256")', resolver)
+        self.assertIn('playlistNamespace(playlistUrl)', resolver)
+        self.assertIn('enqueue("movie:" + playlistNamespace(playlistUrl) + ":" + xcId', resolver)
+        self.assertIn('enqueue("episode:" + playlistNamespace(playlistUrl) + ":"', resolver)
+        self.assertNotIn('enqueue("movie:" + xcId', resolver)
+        self.assertNotIn('enqueue("episode:" + seriesXcId', resolver)
+
     def test_401_refreshes_and_retries_once_without_treating_403_as_logout(self):
         auth = AUTH.read_text()
         sync = SYNC.read_text()

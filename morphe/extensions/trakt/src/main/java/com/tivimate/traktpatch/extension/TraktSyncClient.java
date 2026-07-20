@@ -12,7 +12,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 
 /** Sends already-resolved playback identity directly to Trakt. */
 public final class TraktSyncClient {
@@ -53,7 +55,12 @@ public final class TraktSyncClient {
         if (!TraktDeviceAuth.isCurrentAccessToken(
                 context, authorizationGeneration, accessToken)) return;
         try {
-            JSONObject ids = movieIds(info, movie);
+            StableIds selected = movieIds(info, movie);
+            if (selected.conflict) {
+                Log.w(TAG, "movie scrobble skipped reason=conflicting_stable_id");
+                return;
+            }
+            JSONObject ids = selected.ids;
             if (ids.length() == 0) {
                 Log.w(TAG, "movie scrobble skipped reason=missing_stable_id");
                 return;
@@ -93,7 +100,12 @@ public final class TraktSyncClient {
         if (!TraktDeviceAuth.isCurrentAccessToken(
                 context, authorizationGeneration, accessToken)) return;
         try {
-            JSONObject ids = showIds(info);
+            StableIds selected = showIds(info);
+            if (selected.conflict) {
+                Log.w(TAG, "episode scrobble skipped reason=conflicting_stable_id");
+                return;
+            }
+            JSONObject ids = selected.ids;
             if (ids.length() == 0) {
                 Log.w(TAG, "episode scrobble skipped reason=missing_stable_show_id");
                 return;
@@ -114,32 +126,58 @@ public final class TraktSyncClient {
         }
     }
 
-    private static JSONObject showIds(JSONObject info) throws Exception {
-        JSONObject ids = new JSONObject();
-        String tmdb = first(info, null, "tmdb_id");
-        if (tmdb.length() == 0) tmdb = first(info, null, "tmdb");
-        String imdb = first(info, null, "imdb_id");
-        if (imdb.length() == 0) imdb = first(info, null, "imdb");
-        if (tmdb.matches("[0-9]+")) ids.put("tmdb", Long.parseLong(tmdb));
-        if (imdb.matches("tt[0-9]+")) ids.put("imdb", imdb);
-        return ids;
+    private static StableIds showIds(JSONObject info) throws Exception {
+        return stableIds(info);
     }
 
-    private static JSONObject movieIds(JSONObject info, JSONObject movie) throws Exception {
-        JSONObject ids = new JSONObject();
-        String tmdb = first(info, movie, "tmdb_id");
-        String imdb = first(info, movie, "imdb_id");
-        if (tmdb.matches("[0-9]+")) ids.put("tmdb", Long.parseLong(tmdb));
-        if (imdb.matches("tt[0-9]+")) ids.put("imdb", imdb);
-        return ids;
+    private static StableIds movieIds(JSONObject info, JSONObject movie) throws Exception {
+        return stableIds(info, movie);
     }
 
-    private static String first(JSONObject primary, JSONObject secondary, String key) {
-        String value = primary == null ? "" : primary.optString(key, "").trim();
-        if (value.length() == 0 || "0".equals(value) || "null".equalsIgnoreCase(value)) {
-            value = secondary == null ? "" : secondary.optString(key, "").trim();
+    private static StableIds stableIds(JSONObject... sources) throws Exception {
+        String tmdb = collectTmdb(sources);
+        String imdb = collectImdb(sources);
+        if (tmdb == null || imdb == null) return new StableIds(new JSONObject(), true);
+        JSONObject ids = new JSONObject();
+        if (!tmdb.isEmpty()) ids.put("tmdb", Long.parseLong(tmdb));
+        if (!imdb.isEmpty()) ids.put("imdb", imdb);
+        return new StableIds(ids, false);
+    }
+
+    private static String collectTmdb(JSONObject... sources) {
+        Set<String> values = new HashSet<>();
+        for (JSONObject source : sources) {
+            if (source == null) continue;
+            for (String key : new String[]{"tmdb_id", "tmdb"}) {
+                String value = TraktImportPolicy.stableTmdb(source.opt(key));
+                if (!value.isEmpty()) values.add(value);
+            }
         }
-        return value;
+        if (values.size() > 1) return null;
+        return values.isEmpty() ? "" : values.iterator().next();
+    }
+
+    private static String collectImdb(JSONObject... sources) {
+        Set<String> values = new HashSet<>();
+        for (JSONObject source : sources) {
+            if (source == null) continue;
+            for (String key : new String[]{"imdb_id", "imdb"}) {
+                String value = TraktImportPolicy.stableImdb(source.opt(key));
+                if (!value.isEmpty()) values.add(value);
+            }
+        }
+        if (values.size() > 1) return null;
+        return values.isEmpty() ? "" : values.iterator().next();
+    }
+
+    private static final class StableIds {
+        final JSONObject ids;
+        final boolean conflict;
+
+        StableIds(JSONObject ids, boolean conflict) {
+            this.ids = ids;
+            this.conflict = conflict;
+        }
     }
 
     private static void post(String path, JSONObject payload, String accessToken, String clientId,

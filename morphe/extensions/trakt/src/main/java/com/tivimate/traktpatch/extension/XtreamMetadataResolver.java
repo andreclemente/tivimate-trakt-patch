@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,7 +30,7 @@ public final class XtreamMetadataResolver {
 
     public static void resolveAsync(final String playlistUrl, final String xcId,
                                     final long positionMs, final long durationMs) {
-        enqueue("movie:" + xcId, new Runnable() {
+        enqueue("movie:" + playlistNamespace(playlistUrl) + ":" + xcId, new Runnable() {
             @Override public void run() {
                 HttpURLConnection connection = null;
                 try {
@@ -70,7 +71,8 @@ public final class XtreamMetadataResolver {
     public static void resolveEpisodeAsync(final String playlistUrl, final String seriesXcId,
                                            final String episodeXcId, final long positionMs,
                                            final long durationMs) {
-        enqueue("episode:" + seriesXcId + ":" + episodeXcId, new Runnable() {
+        enqueue("episode:" + playlistNamespace(playlistUrl) + ":"
+                + seriesXcId + ":" + episodeXcId, new Runnable() {
             @Override public void run() {
                 HttpURLConnection connection = null;
                 try {
@@ -106,6 +108,22 @@ public final class XtreamMetadataResolver {
                 }
             }
         });
+    }
+
+    private static String playlistNamespace(String playlistUrl) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
+                    String.valueOf(playlistUrl).getBytes(StandardCharsets.UTF_8));
+            StringBuilder result = new StringBuilder(digest.length * 2);
+            for (byte value : digest) {
+                int unsigned = value & 0xff;
+                if (unsigned < 0x10) result.append('0');
+                result.append(Integer.toHexString(unsigned));
+            }
+            return result.toString();
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 unavailable", impossible);
+        }
     }
 
     private static HttpURLConnection open(String url) throws Exception {

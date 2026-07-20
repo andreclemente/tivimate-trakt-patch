@@ -230,8 +230,8 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('TraktSyncClient.submitEpisode', resolver)
         self.assertIn('"show"', client)
         self.assertIn('"episode"', client)
-        self.assertIn('first(info, null, "tmdb")', client)
-        self.assertIn('first(info, null, "imdb")', client)
+        self.assertIn('new String[]{"tmdb_id", "tmdb"}', client)
+        self.assertIn('new String[]{"imdb_id", "imdb"}', client)
 
     def test_bundle_manifest_describes_runtime_sync_release(self):
         source = PATCH_BUILD.read_text()
