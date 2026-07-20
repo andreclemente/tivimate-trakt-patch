@@ -58,6 +58,22 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('AUTH_GENERATION++', source)
         self.assertIn('poll(context, dialog, deviceCode, intervalSeconds * 1000L, expiresAt, generation', source)
 
+    def test_disconnect_fences_cached_and_in_flight_imports(self):
+        auth = AUTH.read_text()
+        source = COORDINATOR.read_text()
+        self.assertIn('static long generation()', auth)
+        self.assertIn('TraktImportCoordinator.invalidateAuthenticationState()', auth)
+        self.assertIn('static void invalidateAuthenticationState()', source)
+        invalidate = source[source.index('static void invalidateAuthenticationState()'):
+                            source.index('public static void initialize')]
+        self.assertIn('synchronized (DATABASE_WRITE_LOCK)', invalidate)
+        self.assertIn('cacheSnapshot = null', invalidate)
+        self.assertIn('PENDING_SNAPSHOT.set(null)', invalidate)
+        self.assertIn('ON_DEMAND_REQUESTS.clear()', invalidate)
+        self.assertIn('TraktDeviceAuth.isConnected(context)', source)
+        self.assertIn('snapshot.authGeneration == TraktDeviceAuth.generation()', source)
+        self.assertGreaterEqual(source.count('generation != TraktDeviceAuth.generation()'), 2)
+
     def test_401_refreshes_and_retries_once_without_treating_403_as_logout(self):
         auth = AUTH.read_text()
         sync = SYNC.read_text()
@@ -279,6 +295,19 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
                            source.index("private static int reconcileSeriesParent(")]
         self.assertIn("match.target.authoritativeEmptySeriesSet", reconcile)
         self.assertNotIn("state.keepIds.isEmpty()", reconcile)
+
+    def test_opened_movie_absent_from_authoritative_remote_state_is_cleared(self):
+        source = COORDINATOR.read_text()
+        opened = source[source.index("private static void syncOpened("):
+                        source.index("private static Candidate openedCandidate(")]
+        self.assertIn("empty.authoritativeEmptyMovieState = true", opened)
+        self.assertIn("active.isEmpty() && watchedMovies.isEmpty()", opened)
+        update = source[source.index("private static String updateMovie("):
+                        source.index("private static String updateEpisode(")]
+        self.assertIn("target.authoritativeEmptyMovieState", update)
+        self.assertIn('values.put("last_played_position_ms", 0L)', update)
+        self.assertIn('values.put("last_turn_on_time", 0L)', update)
+        self.assertIn("localPosition == 0L && localLastTurn == 0L", update)
 
     def test_cache_refresh_is_single_flight_and_failure_backed_off(self):
         source = COORDINATOR.read_text()

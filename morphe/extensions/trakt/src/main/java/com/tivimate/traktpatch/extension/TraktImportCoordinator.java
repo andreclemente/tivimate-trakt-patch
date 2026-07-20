@@ -76,6 +76,20 @@ public final class TraktImportCoordinator {
 
     private TraktImportCoordinator() { }
 
+    static void invalidateAuthenticationState() {
+        // Wait for any import transaction already inside the write critical section.
+        // Once this returns, no stale-account write can still commit after disconnect.
+        synchronized (DATABASE_WRITE_LOCK) {
+            cacheSnapshot = null;
+            PENDING_SNAPSHOT.set(null);
+            PENDING.set(false);
+            cacheRefreshRetryAt = 0L;
+            synchronized (ON_DEMAND_LOCK) {
+                ON_DEMAND_REQUESTS.clear();
+            }
+        }
+    }
+
     public static void initialize(Context context) {
         if (context == null) return;
         applicationContext = context.getApplicationContext();
@@ -107,6 +121,7 @@ public final class TraktImportCoordinator {
     public static void requestOpenedMovie(long playlistId, int xcId) {
         final Context context = applicationContext;
         if (context == null || playlistId <= 0L || xcId <= 0
+                || !TraktDeviceAuth.isConnected(context)
                 || !TraktDeviceAuth.moviesEnabled(context)) return;
         requestOpened(context, "movie", playlistId, xcId);
     }
@@ -114,6 +129,7 @@ public final class TraktImportCoordinator {
     public static void requestOpenedSeries(long playlistId, int xcId) {
         final Context context = applicationContext;
         if (context == null || playlistId <= 0L || xcId <= 0
+                || !TraktDeviceAuth.isConnected(context)
                 || !TraktDeviceAuth.showsEnabled(context)) return;
         requestOpened(context, "episode", playlistId, xcId);
     }
@@ -188,7 +204,7 @@ public final class TraktImportCoordinator {
 
     private static void requestImport(CacheSnapshot preferredSnapshot) {
         final Context context = applicationContext;
-        if (context == null) return;
+        if (context == null || !TraktDeviceAuth.isConnected(context)) return;
         if (isFresh(preferredSnapshot, System.currentTimeMillis())) {
             PENDING_SNAPSHOT.set(preferredSnapshot);
         }
@@ -225,22 +241,28 @@ public final class TraktImportCoordinator {
         String token = TraktDeviceAuth.accessToken(context);
         String clientId = TraktDeviceAuth.clientId(context);
         if (token == null || clientId == null) throw new IOException("Trakt authorization unavailable");
+        long generation = TraktDeviceAuth.generation();
         JSONArray movies = fetch(ROUTES[0], token, clientId, context);
         JSONArray shows = fetch(ROUTES[1], token, clientId, context);
         JSONArray playback = fetch(ROUTES[2], token, clientId, context);
         if (movies == null || shows == null || playback == null) {
             throw new IOException("Trakt cache unavailable");
         }
+        if (generation != TraktDeviceAuth.generation()
+                || !TraktDeviceAuth.isConnected(context)) {
+            throw new IOException("Trakt authorization changed");
+        }
         CacheSnapshot value = new CacheSnapshot(movies, shows, playback,
-                System.currentTimeMillis());
+                System.currentTimeMillis(), generation);
         cacheSnapshot = value;
         Log.i(TAG, "cache fetched movies=" + movies.length() + " shows=" + shows.length()
                 + " playback=" + playback.length());
         return value;
     }
 
-    private static boolean isFresh(CacheSnapshot value, long now) {
-        return value != null && now >= value.loadedAt && now - value.loadedAt <= CACHE_MAX_AGE_MS;
+    private static boolean isFresh(CacheSnapshot snapshot, long now) {
+        return snapshot != null && snapshot.authGeneration == TraktDeviceAuth.generation()
+                && now >= snapshot.loadedAt && now - snapshot.loadedAt <= CACHE_MAX_AGE_MS;
     }
 
     private static CacheSnapshot freshCache(Context context) throws Exception {
@@ -276,6 +298,8 @@ public final class TraktImportCoordinator {
 
     private static void syncOpened(Context context, String type, long playlistId,
                                    int xcId) throws Exception {
+        long generation = TraktDeviceAuth.generation();
+        if (!TraktDeviceAuth.isConnected(context)) return;
         CacheSnapshot snapshot = null;
         SQLiteDatabase database = null;
         boolean providerReconciled = false;
@@ -302,21 +326,32 @@ public final class TraktImportCoordinator {
                 addWatchedMovies(snapshot.movies, watchedMovies);
             } else {
                 addWatchedShows(openedWatchedShows(snapshot.shows, identity, context), watchedShows);
-                if (watchedShows.isEmpty()) {
-                    Target empty = new Target();
-                    empty.type = "episode";
-                    empty.tmdb = identity.tmdb;
-                    empty.imdb = identity.imdb;
-                    empty.title = opened.title;
-                    empty.year = opened.year;
-                    empty.authoritativeSeriesSet = true;
-                    empty.authoritativeEmptySeriesSet = true;
-                    put(watchedShows, empty);
-                }
             }
             retainIdentity(active, identity, type);
             retainIdentity(watchedMovies, identity, type);
             retainIdentity(watchedShows, identity, type);
+            // Both cache routes are complete authoritative snapshots. Materialize an
+            // empty target only after each has been scoped to the opened stable identity.
+            if (movie && active.isEmpty() && watchedMovies.isEmpty()) {
+                Target empty = new Target();
+                empty.type = "movie";
+                empty.tmdb = identity.tmdb;
+                empty.imdb = identity.imdb;
+                empty.title = opened.title;
+                empty.year = opened.year;
+                empty.authoritativeEmptyMovieState = true;
+                put(watchedMovies, empty);
+            } else if (!movie && watchedShows.isEmpty()) {
+                Target empty = new Target();
+                empty.type = "episode";
+                empty.tmdb = identity.tmdb;
+                empty.imdb = identity.imdb;
+                empty.title = opened.title;
+                empty.year = opened.year;
+                empty.authoritativeSeriesSet = true;
+                empty.authoritativeEmptySeriesSet = true;
+                put(watchedShows, empty);
+            }
             mergeOverlaps(active, watchedMovies);
             mergeOverlaps(active, watchedShows);
             List<List<Target>> categories = new ArrayList<>();
@@ -325,6 +360,8 @@ public final class TraktImportCoordinator {
             categories.add(new ArrayList<>(watchedShows.values()));
             int targetCount = active.size() + watchedMovies.size() + watchedShows.size();
             if (targetCount == 0) return;
+            if (generation != TraktDeviceAuth.generation()
+                    || !TraktDeviceAuth.isConnected(context)) return;
             providerReconciled = apply(database, categories, targetCount) > 0;
             if (providerReconciled) {
                 Log.i(TAG, "on-demand complete media=" + (movie ? "movie" : "series")
@@ -406,11 +443,13 @@ public final class TraktImportCoordinator {
     }
 
     private static void importNow(Context context, CacheSnapshot preferredSnapshot) throws Exception {
+        if (!TraktDeviceAuth.isConnected(context)) return;
         Log.i(TAG, "import start");
         String token = TraktDeviceAuth.accessToken(context);
         if (token == null) { Log.i(TAG, "import skipped token"); return; }
         String clientId = TraktDeviceAuth.clientId(context);
         if (clientId == null) { Log.i(TAG, "import skipped client"); return; }
+        long generation = TraktDeviceAuth.generation();
         CacheSnapshot snapshot = isFresh(preferredSnapshot, System.currentTimeMillis())
                 ? preferredSnapshot : freshCache(context);
         JSONArray movies = snapshot.movies;
@@ -448,6 +487,8 @@ public final class TraktImportCoordinator {
         SQLiteDatabase database = null;
         try {
             database = SQLiteDatabase.openDatabase(file.getAbsolutePath(), null, SQLiteDatabase.OPEN_READWRITE);
+            if (generation != TraktDeviceAuth.generation()
+                    || !TraktDeviceAuth.isConnected(context)) return;
             apply(database, categories, targetCount);
         } finally {
             if (database != null) database.close();
@@ -801,6 +842,9 @@ public final class TraktImportCoordinator {
 
     private static int apply(SQLiteDatabase database, List<List<Target>> categories,
                              int targetCount) throws Exception {
+        final Context context = applicationContext;
+        final long generation = TraktDeviceAuth.generation();
+        if (context == null || !TraktDeviceAuth.isConnected(context)) return 0;
         List<Target> movieTargets = new ArrayList<>();
         List<Target> showTargets = new ArrayList<>();
         for (List<Target> category : categories) for (Target target : category) {
@@ -817,6 +861,8 @@ public final class TraktImportCoordinator {
         int requests = resolveProviderCandidates(states, matches);
 
         synchronized (DATABASE_WRITE_LOCK) {
+            if (generation != TraktDeviceAuth.generation()
+                    || !TraktDeviceAuth.isConnected(context)) return 0;
             int changed = 0;
             if (matches.isEmpty()) {
                 Log.i(TAG, "import complete targets=" + targetCount + " provider_requests=" + requests + " matches=0 changed=0");
@@ -1125,6 +1171,16 @@ public final class TraktImportCoordinator {
             long localDuration = cursor.isNull(3) ? 0L : cursor.getLong(3);
             String localDurationValue = cursor.isNull(3) ? "null" : cursor.getString(3);
             long localLastTurn = cursor.isNull(4) ? 0L : cursor.getLong(4);
+            if (target.authoritativeEmptyMovieState) {
+                if (localPosition == 0L && localLastTurn == 0L) return null;
+                ContentValues values = new ContentValues();
+                values.put("last_played_position_ms", 0L);
+                values.put("last_turn_on_time", 0L);
+                if (database.update("movies", values, "id=?",
+                        new String[]{String.valueOf(candidate.id)}) <= 0) return null;
+                return "id=" + candidate.id + "|playlist_id=" + playlistId + "|xc_id=" + xcId
+                        + "|last_played_position_ms=0|duration_ms=" + localDurationValue;
+            }
             if (!target.watched && localDuration <= 0L) return null;
             long duration = target.watched
                     ? TraktImportPolicy.selectWatchedDuration(localDuration,
@@ -1346,13 +1402,15 @@ public final class TraktImportCoordinator {
 
     private static final class CacheSnapshot {
         final JSONArray movies, shows, playback;
-        final long loadedAt;
+        final long loadedAt, authGeneration;
 
-        CacheSnapshot(JSONArray movies, JSONArray shows, JSONArray playback, long loadedAt) {
+        CacheSnapshot(JSONArray movies, JSONArray shows, JSONArray playback, long loadedAt,
+                      long authGeneration) {
             this.movies = movies;
             this.shows = shows;
             this.playback = playback;
             this.loadedAt = loadedAt;
+            this.authGeneration = authGeneration;
         }
     }
 
@@ -1362,6 +1420,7 @@ public final class TraktImportCoordinator {
         boolean watched;
         boolean authoritativeSeriesSet;
         boolean authoritativeEmptySeriesSet;
+        boolean authoritativeEmptyMovieState;
         double progress;
         long traktDurationMs;
         String key() { return type + ':' + (!tmdb.isEmpty() ? "tmdb:" + tmdb : "imdb:" + imdb) + ':' + season + ':' + episode; }

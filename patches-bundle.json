@@ -2,7 +2,7 @@
   "created_at": "2026-07-16T23:39:42",
   "description": "TiviMate Trakt v1.0.0: bidirectional movie/show progress sync, native detail-open reconciliation, safe duplicate handling, and revocable device authorization.",
   "display_name": "TiviMate Trakt v1.0.0",
-  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/runtime-v1-source/dist/patches-1.0.0.mpp",
+  "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/main/dist/patches-1.0.0.mpp",
   "signature_download_url": "",
   "version": "1.0.0"
 }

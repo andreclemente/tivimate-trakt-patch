@@ -72,7 +72,7 @@ public final class TraktDeviceAuth {
         return refreshAccessToken(new TokenStore(context));
     }
 
-    private static long generation() {
+    static long generation() {
         synchronized (AUTH_LOCK) { return AUTH_GENERATION; }
     }
 
@@ -312,14 +312,18 @@ public final class TraktDeviceAuth {
     }
 
     private static String disconnectLocally(Context context) {
+        String refreshToken;
         synchronized (AUTH_LOCK) {
             AUTH_GENERATION++;
             TokenStore store = new TokenStore(context);
-            String refreshToken = store.refreshToken();
+            refreshToken = store.refreshToken();
             store.clear();
             new SyncSettings(context).clear();
-            return refreshToken;
         }
+        // Coordinator cleanup can acquire its own locks. Never call it while holding
+        // AUTH_LOCK; generation and durable local state have already been changed.
+        TraktImportCoordinator.invalidateAuthenticationState();
+        return refreshToken;
     }
 
     private static JSONObject post(String endpoint, JSONObject payload) throws Exception {
