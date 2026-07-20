@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-07-20T10:08:17",
+  "created_at": "2026-07-20T10:42:32",
   "description": "Private runtime candidate validating inbound and outbound account fencing. Not a production release.",
-  "display_name": "TiviMate Trakt v1 RC scrobble-diagnostic",
+  "display_name": "TiviMate Trakt v1 RC final",
   "download_url": "https://raw.githubusercontent.com/andreclemente/tivimate-trakt-patch/runtime-v1-source/dist/patches-1.0.0.mpp",
   "signature_download_url": "",
-  "version": "1.0.0-rc.scrobble-diagnostic"
+  "version": "1.0.0-rc.final"
 }

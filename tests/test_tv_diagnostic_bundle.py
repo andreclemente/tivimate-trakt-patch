@@ -208,10 +208,16 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertIn('errorSummary(connection)', client)
         self.assertIn('reason=" + errorSummary', client)
         self.assertIn('response.optJSONObject("errors")', client)
+        self.assertIn('response.optString("message"', client)
         self.assertIn('action=" + action', client)
         self.assertIn('progress_bucket=" + progressBucket', client)
         self.assertNotIn('Log.w(TAG, payload.toString()', client)
         self.assertNotIn('Log.w(TAG, body', client)
+
+    def test_pause_scrobble_skips_progress_below_trakt_minimum(self):
+        client = SYNC_CLIENT.read_text()
+        self.assertGreaterEqual(client.count('if (progress < 1.0d)'), 2)
+        self.assertIn('scrobble skipped reason=progress_below_minimum', client)
 
     def test_episode_progress_resolves_series_identity_then_posts_scrobble(self):
         bridge = PROGRESS_BRIDGE.read_text()

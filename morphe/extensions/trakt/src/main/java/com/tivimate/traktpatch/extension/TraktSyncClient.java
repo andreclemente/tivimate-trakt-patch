@@ -59,6 +59,10 @@ public final class TraktSyncClient {
                 return;
             }
             double progress = TraktProgressMath.percent(positionMs, durationMs);
+            if (progress < 1.0d) {
+                Log.i(TAG, "movie scrobble skipped reason=progress_below_minimum");
+                return;
+            }
             JSONObject payload = new JSONObject();
             payload.put("movie", new JSONObject().put("ids", ids));
             payload.put("progress", progress);
@@ -95,6 +99,10 @@ public final class TraktSyncClient {
                 return;
             }
             double progress = TraktProgressMath.percent(positionMs, durationMs);
+            if (progress < 1.0d) {
+                Log.i(TAG, "episode scrobble skipped reason=progress_below_minimum");
+                return;
+            }
             JSONObject payload = new JSONObject();
             payload.put("show", new JSONObject().put("ids", ids));
             payload.put("episode", new JSONObject().put("season", season).put("number", number));
@@ -204,8 +212,9 @@ public final class TraktSyncClient {
                 text.append(buffer, 0, count);
             }
             JSONObject response = new JSONObject(text.toString());
-            String value = response.optString("error_description",
-                    response.optString("error", "unspecified"));
+            String value = response.optString("message",
+                    response.optString("error_description",
+                            response.optString("error", "unspecified")));
             JSONObject errors = response.optJSONObject("errors");
             if ("unspecified".equals(value) && errors != null) {
                 Iterator<String> keys = errors.keys();
