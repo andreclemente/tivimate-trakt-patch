@@ -88,14 +88,25 @@ public final class TraktDeviceAuth {
     /** Returns the public API key, migrating already-encrypted token records on first use. */
     static synchronized String clientId(Context context) {
         TokenStore store = new TokenStore(context);
-        String clientId = store.clientId();
-        if (clientId != null) return clientId;
+        final long generation;
+        synchronized (AUTH_LOCK) {
+            String existing = store.clientId();
+            if (existing != null) return existing;
+            generation = AUTH_GENERATION;
+        }
         try {
             JSONObject config = requestWithRetry(CLIENT_URL, null);
-            clientId = config.optString("client_id", "");
+            String clientId = config.optString("client_id", "");
             if (clientId.length() == 0 || clientId.length() > 4096) return null;
-            store.saveClientId(clientId);
-            return clientId;
+            synchronized (AUTH_LOCK) {
+                // The request ran unlocked. Do not merge into a token record that
+                // disconnect or a completed refresh cleared/replaced meanwhile.
+                if (generation != AUTH_GENERATION) return store.clientId();
+                String existing = store.clientId();
+                if (existing != null) return existing;
+                store.saveClientId(clientId);
+                return clientId;
+            }
         } catch (Exception ignored) {
             return null;
         }
@@ -103,14 +114,34 @@ public final class TraktDeviceAuth {
 
     static void invalidateAccessToken(Context context) {
         // A resource-server 401 is not proof that the refresh token is invalid.
-        new TokenStore(context).expireAccessToken();
+        // Expiration is a read-modify-write and must not race disconnect.
+        synchronized (AUTH_LOCK) {
+            new TokenStore(context).expireAccessToken();
+        }
     }
 
     private static String refreshAccessToken(TokenStore store) {
+        final long observedGeneration;
+        final String observedRefreshToken;
+        synchronized (AUTH_LOCK) {
+            observedGeneration = AUTH_GENERATION;
+            observedRefreshToken = store.refreshToken();
+        }
+        if (observedRefreshToken == null) return null;
         synchronized (REFRESH_LOCK) {
-            long generation = generation();
-            String refreshToken = store.refreshToken();
-            if (refreshToken == null) return null;
+            final long generation;
+            final String refreshToken;
+            synchronized (AUTH_LOCK) {
+                String currentRefreshToken = store.refreshToken();
+                if (observedGeneration != AUTH_GENERATION
+                        || !observedRefreshToken.equals(currentRefreshToken)) {
+                    // Coalesce behind a completed refresh. Disconnect/replacement
+                    // instead yields null because no current access token remains.
+                    return store.accessToken();
+                }
+                generation = AUTH_GENERATION;
+                refreshToken = currentRefreshToken;
+            }
             try {
                 JSONObject request = new JSONObject();
                 request.put("refresh_token", refreshToken);
@@ -322,12 +353,16 @@ public final class TraktDeviceAuth {
 
     private static String disconnectLocally(Context context) {
         String refreshToken;
-        synchronized (AUTH_LOCK) {
-            AUTH_GENERATION++;
-            TokenStore store = new TokenStore(context);
-            refreshToken = store.refreshToken();
-            store.clear();
-            new SyncSettings(context).clear();
+        // Capture the newest rotated token: disconnect cannot overtake refresh and
+        // accidentally revoke only the now-invalid predecessor token.
+        synchronized (REFRESH_LOCK) {
+            synchronized (AUTH_LOCK) {
+                AUTH_GENERATION++;
+                TokenStore store = new TokenStore(context);
+                refreshToken = store.refreshToken();
+                store.clear();
+                new SyncSettings(context).clear();
+            }
         }
         // Coordinator cleanup can acquire its own locks. Never call it while holding
         // AUTH_LOCK; generation and durable local state have already been changed.
@@ -358,6 +393,7 @@ public final class TraktDeviceAuth {
             if (status < 200 || status >= 300) {
                 throw new DeviceAuthorizationException(status, responseErrorCode(endpoint, status, text));
             }
+            if (REVOKE_URL.equals(endpoint) && text.length() == 0) return new JSONObject();
             return new JSONObject(text);
         } finally {
             connection.disconnect();

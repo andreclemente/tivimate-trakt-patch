@@ -201,16 +201,17 @@ class TvTraktSettingsBundleTest(unittest.TestCase):
         self.assertNotIn('Log.i(TAG, accessToken', client)
         self.assertNotIn('error.getMessage()', client)
 
-    def test_scrobble_rejection_logs_bounded_sanitized_trakt_reason(self):
+    def test_scrobble_rejection_logs_only_fixed_bounded_categories(self):
         client = SYNC_CLIENT.read_text()
-        self.assertIn('connection.getErrorStream()', client)
-        self.assertIn('MAX_ERROR_RESPONSE_CHARS = 4096', client)
-        self.assertIn('errorSummary(connection)', client)
-        self.assertIn('reason=" + errorSummary', client)
-        self.assertIn('response.optJSONObject("errors")', client)
-        self.assertIn('response.optString("message"', client)
+        self.assertNotIn('connection.getErrorStream()', client)
+        self.assertNotIn('errorSummary(connection)', client)
+        self.assertNotIn('response.optJSONObject("errors")', client)
+        self.assertNotIn('response.optString("message"', client)
+        self.assertIn('reason=" + rejectionReason(status)', client)
         self.assertIn('action=" + action', client)
         self.assertIn('progress_bucket=" + progressBucket', client)
+        self.assertIn('return "client_error"', client)
+        self.assertIn('return "server_error"', client)
         self.assertNotIn('Log.w(TAG, payload.toString()', client)
         self.assertNotIn('Log.w(TAG, body', client)
 

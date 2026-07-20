@@ -84,7 +84,8 @@ async function traktFetch(path, payload, fetchImpl, publicClientId) {
       // Preserve an unexpected successful upstream body unchanged.
     }
   }
-  return new Response(text, {
+  const responseBody = upstream.status === 204 || upstream.status === 205 ? null : text;
+  return new Response(responseBody, {
     status: upstream.status,
     headers: {
       ...JSON_HEADERS,

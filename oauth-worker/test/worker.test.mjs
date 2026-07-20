@@ -93,6 +93,20 @@ test('revoke endpoint forwards only the token plus server-side credentials', asy
   });
 });
 
+test('revoke endpoint preserves an empty successful upstream response', async () => {
+  let forwarded;
+  const response = await handle(new Request('https://proxy.example/v1/revoke', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: 'refresh-token' }),
+  }), env, async (url, init) => {
+    forwarded = new Request(url, init);
+    return new Response(null, { status: 204 });
+  });
+  assert.equal(forwarded.url, 'https://api.trakt.tv/oauth/revoke');
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), '');
+});
+
 test('revoke endpoint rejects missing tokens without forwarding', async () => {
   let called = false;
   const response = await handle(new Request('https://proxy.example/v1/revoke', {

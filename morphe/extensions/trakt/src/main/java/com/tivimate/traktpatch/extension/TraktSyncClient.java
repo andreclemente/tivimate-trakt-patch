@@ -3,11 +3,8 @@ package com.tivimate.traktpatch.extension;
 import android.content.Context;
 import android.util.Log;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -20,7 +17,6 @@ import java.util.Set;
 public final class TraktSyncClient {
     private static final String TAG = "TiviMateTraktSync";
     private static final String TRAKT_API = "https://api.trakt.tv";
-    private static final int MAX_ERROR_RESPONSE_CHARS = 4096;
     private static final Object OUTBOUND_LOCK = new Object();
     private static volatile Context applicationContext;
 
@@ -228,8 +224,8 @@ public final class TraktSyncClient {
                     continue;
                 }
                 Log.w(TAG, mediaType + " scrobble rejected action=" + action
-                        + " progress_bucket=" + progressBucket + " status=" + status
-                        + " reason=" + errorSummary(connection));
+                        + " progress_bucket=" + progressBucket
+                        + " reason=" + rejectionReason(status));
                 return;
             } finally {
                 connection.disconnect();
@@ -237,38 +233,15 @@ public final class TraktSyncClient {
         }
     }
 
-    private static String errorSummary(HttpURLConnection connection) {
-        InputStream stream = connection.getErrorStream();
-        if (stream == null) return "unavailable";
-        try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-            StringBuilder text = new StringBuilder();
-            char[] buffer = new char[512];
-            while (text.length() < MAX_ERROR_RESPONSE_CHARS) {
-                int count = reader.read(buffer, 0,
-                        Math.min(buffer.length, MAX_ERROR_RESPONSE_CHARS - text.length()));
-                if (count < 0) break;
-                text.append(buffer, 0, count);
-            }
-            JSONObject response = new JSONObject(text.toString());
-            String value = response.optString("message",
-                    response.optString("error_description",
-                            response.optString("error", "unspecified")));
-            JSONObject errors = response.optJSONObject("errors");
-            if ("unspecified".equals(value) && errors != null) {
-                Iterator<String> keys = errors.keys();
-                if (keys.hasNext()) {
-                    String key = keys.next();
-                    Object detail = errors.opt(key);
-                    if (detail instanceof JSONArray && ((JSONArray) detail).length() > 0) {
-                        detail = ((JSONArray) detail).opt(0);
-                    }
-                    value = key + ":" + String.valueOf(detail);
-                }
-            }
-            return value.substring(0, Math.min(value.length(), 256))
-                    .replaceAll("[^A-Za-z0-9_.:-]+", "_");
-        } catch (Exception ignored) {
-            return "unparseable";
-        }
+    private static String rejectionReason(int status) {
+        // Never parse or log upstream bodies; values can be user-controlled or secret.
+        if (status == 400) return "bad_request";
+        if (status == 404) return "not_found";
+        if (status == 409) return "conflict";
+        if (status == 422) return "unprocessable";
+        if (status == 429) return "rate_limited";
+        if (status >= 400 && status < 500) return "client_error";
+        if (status >= 500 && status < 600) return "server_error";
+        return "unexpected_status";
     }
 }

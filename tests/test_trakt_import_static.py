@@ -58,6 +58,45 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('AUTH_GENERATION++', source)
         self.assertIn('poll(context, dialog, deviceCode, intervalSeconds * 1000L, expiresAt, generation', source)
 
+    def test_auth_read_modify_write_and_disconnect_are_serialized_with_refresh(self):
+        source = AUTH.read_text()
+        client = source[source.index('static synchronized String clientId(Context context)'):
+                        source.index('static void invalidateAccessToken(Context context)')]
+        disconnect = source[source.index('private static String disconnectLocally(Context context)'):
+                            source.index('private static JSONObject post(')]
+        self.assertIn('synchronized (AUTH_LOCK)', client)
+        self.assertIn('generation != AUTH_GENERATION', client)
+        self.assertIn('synchronized (REFRESH_LOCK)', disconnect)
+        self.assertLess(disconnect.index('synchronized (REFRESH_LOCK)'),
+                        disconnect.index('synchronized (AUTH_LOCK)'))
+
+    def test_refresh_rechecks_credentials_after_single_flight_lock(self):
+        source = AUTH.read_text()
+        refresh = source[source.index('private static String refreshAccessToken(TokenStore store)'):
+                         source.index('private static boolean isAuthoritativeInvalidRefresh')]
+        self.assertIn('observedGeneration', refresh)
+        self.assertIn('observedRefreshToken', refresh)
+        self.assertIn('synchronized (REFRESH_LOCK)', refresh)
+        self.assertIn('currentRefreshToken', refresh)
+        self.assertIn('return store.accessToken()', refresh)
+        self.assertLess(refresh.index('synchronized (REFRESH_LOCK)'),
+                        refresh.index('currentRefreshToken'))
+
+    def test_empty_successful_revoke_does_not_require_json(self):
+        source = AUTH.read_text()
+        post = source[source.index('private static JSONObject post('):
+                      source.index('private static String responseErrorCode(')]
+        self.assertIn('REVOKE_URL.equals(endpoint) && text.length() == 0', post)
+
+    def test_scrobble_logs_only_fixed_upstream_failure_categories(self):
+        source = SYNC.read_text()
+        self.assertNotIn('errorSummary(', source)
+        self.assertNotIn('response.optString("message"', source)
+        self.assertIn('rejectionReason(status)', source)
+        for diagnostic in ('bad_request', 'rate_limited', 'client_error',
+                           'server_error', 'unexpected_status'):
+            self.assertIn('"' + diagnostic + '"', source)
+
     def test_disconnect_fences_cached_and_in_flight_imports(self):
         auth = AUTH.read_text()
         source = COORDINATOR.read_text()
