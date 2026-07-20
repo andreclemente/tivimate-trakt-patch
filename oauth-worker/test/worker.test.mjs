@@ -82,6 +82,26 @@ test('refresh endpoint only accepts a refresh token and returns public id', asyn
   assert.equal((await response.json()).client_id, 'public-client-id');
 });
 
+test('revoke endpoint forwards only the token plus server-side credentials', async () => {
+  const { response, forwarded } = await invoke('/v1/revoke', { token: 'access-or-refresh-token' });
+  assert.equal(response.status, 200);
+  assert.equal(forwarded.url, 'https://api.trakt.tv/oauth/revoke');
+  assert.deepEqual(await forwarded.json(), {
+    token: 'access-or-refresh-token',
+    client_id: 'public-client-id',
+    client_secret: 'private-client-secret',
+  });
+});
+
+test('revoke endpoint rejects missing tokens without forwarding', async () => {
+  let called = false;
+  const response = await handle(new Request('https://proxy.example/v1/revoke', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+  }), env, async () => { called = true; return new Response('{}'); });
+  assert.equal(response.status, 400);
+  assert.equal(called, false);
+});
+
 test('rejects an oversized chunked auth request with 413 before forwarding', async () => {
   let forwarded = false;
   const oversized = new ReadableStream({

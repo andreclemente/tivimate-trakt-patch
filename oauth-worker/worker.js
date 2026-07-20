@@ -108,7 +108,7 @@ export async function handle(request, env, fetchImpl = fetch) {
     return traktFetch('/oauth/device/code', { client_id: env.TRAKT_CLIENT_ID }, fetchImpl);
   }
 
-  if (path !== '/v1/device/token' && path !== '/v1/token') {
+  if (path !== '/v1/device/token' && path !== '/v1/token' && path !== '/v1/revoke') {
     return json(404, { error: 'not_found' });
   }
   let requestBody;
@@ -127,6 +127,17 @@ export async function handle(request, env, fetchImpl = fetch) {
       client_id: env.TRAKT_CLIENT_ID,
       client_secret: env.TRAKT_CLIENT_SECRET,
     }, fetchImpl, env.TRAKT_CLIENT_ID);
+  }
+
+  if (path === '/v1/revoke') {
+    if (!requestBody || !nonEmptyString(requestBody.token)) {
+      return json(400, { error: 'invalid_request' });
+    }
+    return traktFetch('/oauth/revoke', {
+      token: requestBody.token,
+      client_id: env.TRAKT_CLIENT_ID,
+      client_secret: env.TRAKT_CLIENT_SECRET,
+    }, fetchImpl);
   }
 
   if (path === '/v1/token') {
