@@ -74,6 +74,18 @@ class TraktImportStaticRegressionTest(unittest.TestCase):
         self.assertIn('snapshot.authGeneration == TraktDeviceAuth.generation()', source)
         self.assertGreaterEqual(source.count('generation != TraktDeviceAuth.generation()'), 2)
 
+    def test_disconnect_fences_cached_and_in_flight_outbound_scrobbles(self):
+        auth = AUTH.read_text()
+        sync = SYNC.read_text()
+        self.assertIn('static boolean isCurrentAccessToken', auth)
+        self.assertIn('TraktSyncClient.invalidateAuthenticationState()', auth)
+        self.assertIn('OUTBOUND_LOCK', sync)
+        invalidate = sync[sync.index('static void invalidateAuthenticationState()'):
+                          sync.index('public static void initialize')]
+        self.assertIn('synchronized (OUTBOUND_LOCK)', invalidate)
+        self.assertGreaterEqual(sync.count('TraktDeviceAuth.isCurrentAccessToken('), 5)
+        self.assertIn('synchronized (OUTBOUND_LOCK)', sync)
+
     def test_401_refreshes_and_retries_once_without_treating_403_as_logout(self):
         auth = AUTH.read_text()
         sync = SYNC.read_text()

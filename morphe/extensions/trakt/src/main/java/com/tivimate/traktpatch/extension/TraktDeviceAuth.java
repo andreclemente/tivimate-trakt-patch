@@ -76,6 +76,15 @@ public final class TraktDeviceAuth {
         synchronized (AUTH_LOCK) { return AUTH_GENERATION; }
     }
 
+    static boolean isCurrentAccessToken(Context context, long generation, String accessToken) {
+        if (context == null || accessToken == null) return false;
+        synchronized (AUTH_LOCK) {
+            if (generation != AUTH_GENERATION) return false;
+            String current = new TokenStore(context).accessToken();
+            return accessToken.equals(current);
+        }
+    }
+
     /** Returns the public API key, migrating already-encrypted token records on first use. */
     static synchronized String clientId(Context context) {
         TokenStore store = new TokenStore(context);
@@ -323,6 +332,7 @@ public final class TraktDeviceAuth {
         // Coordinator cleanup can acquire its own locks. Never call it while holding
         // AUTH_LOCK; generation and durable local state have already been changed.
         TraktImportCoordinator.invalidateAuthenticationState();
+        TraktSyncClient.invalidateAuthenticationState();
         return refreshToken;
     }
 

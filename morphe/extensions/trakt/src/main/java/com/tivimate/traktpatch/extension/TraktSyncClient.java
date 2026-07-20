@@ -17,21 +17,39 @@ public final class TraktSyncClient {
     private static final String TAG = "TiviMateTraktSync";
     private static final String TRAKT_API = "https://api.trakt.tv";
     private static final int MAX_ERROR_RESPONSE_CHARS = 4096;
+    private static final Object OUTBOUND_LOCK = new Object();
     private static volatile Context applicationContext;
 
     private TraktSyncClient() { }
+
+    static void invalidateAuthenticationState() {
+        // Disconnect advances the auth generation before waiting here. Work already
+        // inside the critical section finishes before local disconnect returns; work
+        // entering afterward observes the new generation and fails closed.
+        synchronized (OUTBOUND_LOCK) { }
+    }
 
     public static void initialize(Context context) {
         if (context != null) applicationContext = context.getApplicationContext();
     }
 
     public static void submitMovie(JSONObject info, JSONObject movie, long positionMs, long durationMs) {
+        synchronized (OUTBOUND_LOCK) {
+            submitMovieLocked(info, movie, positionMs, durationMs);
+        }
+    }
+
+    private static void submitMovieLocked(JSONObject info, JSONObject movie,
+                                          long positionMs, long durationMs) {
         Context context = applicationContext;
         if (context == null || !TraktDeviceAuth.moviesEnabled(context) || durationMs <= 0L) return;
         String accessToken = TraktDeviceAuth.accessToken(context);
         if (accessToken == null) return;
         String clientId = TraktDeviceAuth.clientId(context);
         if (clientId == null) return;
+        long authorizationGeneration = TraktDeviceAuth.generation();
+        if (!TraktDeviceAuth.isCurrentAccessToken(
+                context, authorizationGeneration, accessToken)) return;
         try {
             JSONObject ids = movieIds(info, movie);
             if (ids.length() == 0) {
@@ -43,7 +61,7 @@ public final class TraktSyncClient {
             payload.put("movie", new JSONObject().put("ids", ids));
             payload.put("progress", progress);
             post(progress >= 80.0d ? "/scrobble/stop" : "/scrobble/pause",
-                    payload, accessToken, clientId, "movie");
+                    payload, accessToken, clientId, "movie", context, authorizationGeneration);
         } catch (Exception error) {
             Log.w(TAG, "movie scrobble failed type=" + error.getClass().getSimpleName());
         }
@@ -51,6 +69,13 @@ public final class TraktSyncClient {
 
     public static void submitEpisode(JSONObject info, int season, int number,
                                      long positionMs, long durationMs) {
+        synchronized (OUTBOUND_LOCK) {
+            submitEpisodeLocked(info, season, number, positionMs, durationMs);
+        }
+    }
+
+    private static void submitEpisodeLocked(JSONObject info, int season, int number,
+                                            long positionMs, long durationMs) {
         Context context = applicationContext;
         if (context == null || !TraktDeviceAuth.showsEnabled(context) || durationMs <= 0L
                 || season <= 0 || number <= 0) return;
@@ -58,6 +83,9 @@ public final class TraktSyncClient {
         if (accessToken == null) return;
         String clientId = TraktDeviceAuth.clientId(context);
         if (clientId == null) return;
+        long authorizationGeneration = TraktDeviceAuth.generation();
+        if (!TraktDeviceAuth.isCurrentAccessToken(
+                context, authorizationGeneration, accessToken)) return;
         try {
             JSONObject ids = showIds(info);
             if (ids.length() == 0) {
@@ -70,7 +98,7 @@ public final class TraktSyncClient {
             payload.put("episode", new JSONObject().put("season", season).put("number", number));
             payload.put("progress", progress);
             post(progress >= 80.0d ? "/scrobble/stop" : "/scrobble/pause",
-                    payload, accessToken, clientId, "episode");
+                    payload, accessToken, clientId, "episode", context, authorizationGeneration);
         } catch (Exception error) {
             Log.w(TAG, "episode scrobble failed type=" + error.getClass().getSimpleName());
         }
@@ -105,9 +133,12 @@ public final class TraktSyncClient {
     }
 
     private static void post(String path, JSONObject payload, String accessToken, String clientId,
-                             String mediaType) throws Exception {
+                             String mediaType, Context context,
+                             long authorizationGeneration) throws Exception {
         byte[] body = payload.toString().getBytes(StandardCharsets.UTF_8);
         for (int attempt = 0; attempt < 2; attempt++) {
+            if (!TraktDeviceAuth.isCurrentAccessToken(
+                    context, authorizationGeneration, accessToken)) return;
             HttpURLConnection connection = (HttpURLConnection) new URL(TRAKT_API + path).openConnection();
             try {
                 connection.setInstanceFollowRedirects(false);
@@ -123,6 +154,8 @@ public final class TraktSyncClient {
                 connection.setFixedLengthStreamingMode(body.length);
                 try (OutputStream output = connection.getOutputStream()) { output.write(body); }
                 int status = connection.getResponseCode();
+                if (!TraktDeviceAuth.isCurrentAccessToken(
+                        context, authorizationGeneration, accessToken)) return;
                 if (status >= 200 && status < 300) {
                     Log.i(TAG, mediaType + " scrobble accepted action="
                             + path.substring(path.lastIndexOf('/') + 1)
@@ -130,10 +163,10 @@ public final class TraktSyncClient {
                     return;
                 }
                 if (status == 401 && attempt == 0) {
-                    Context context = applicationContext;
-                    if (context == null) return;
                     accessToken = TraktDeviceAuth.forceRefresh(context);
-                    if (accessToken != null) continue;
+                    authorizationGeneration = TraktDeviceAuth.generation();
+                    if (accessToken != null && TraktDeviceAuth.isCurrentAccessToken(
+                            context, authorizationGeneration, accessToken)) continue;
                     Log.w(TAG, mediaType + " scrobble refresh rejected");
                     return;
                 }
