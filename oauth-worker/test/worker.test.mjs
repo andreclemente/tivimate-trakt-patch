@@ -114,7 +114,6 @@ test('revoke endpoint preserves an empty successful upstream response', async ()
   assert.equal(response.status, 204);
   assert.equal(await response.text(), '');
 });
-
 test('revoke endpoint rejects missing tokens without forwarding', async () => {
   let called = false;
   const response = await handle(new Request('https://proxy.example/v1/revoke', {
